@@ -119,6 +119,24 @@ def test_market_data_token_cannot_read_audit(client, keys):
     assert response.json()["error"]["code"] == "forbidden"
 
 
+def test_live_book_is_visible(client, keys):
+    if not os.environ.get("DATABASE_URL"):
+        pytest.skip("DATABASE_URL is not set")
+    private, _public = keys
+    token = _token(private, ["market_data_client"])
+    response = client.get(
+        "/api/v1/market-data/BASELINE",
+        headers={"Authorization": "Bearer {0}".format(token)},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["symbol"] == "BASELINE"
+    assert body["status"] in ("live", "stale")
+    assert body["ingest_sequence"] >= 1
+    assert body["received_at"]
+    assert body["exchange_event_time"] is None
+
+
 def test_rate_limit_returns_429(keys, monkeypatch):
     if not os.environ.get("DATABASE_URL"):
         pytest.skip("DATABASE_URL is not set")

@@ -158,3 +158,17 @@ services:
       exchange:
         condition: service_healthy
     profiles: ["order"]
+
+  api:
+    build:
+      context: ./secure_api
+      dockerfile: Dockerfile
+    image: pytradesim-api:latest
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://pytradesim_app:pytradesim@postgres:5432/pytradesim
+      RATE_LIMIT_REQUIRED: "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully

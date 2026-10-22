@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
+from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 
 app = FastAPI(title="pytradesim secure API", version="1")
 _bearer = HTTPBearer(auto_error=False)
@@ -100,7 +101,40 @@ def health():
 
 @app.get("/api/v1/market-data")
 def market_data(_claims=Depends(require("market-data:read"))):
-    return {"symbols": []}
+    if not os.environ.get("DATABASE_URL"):
+        return {"symbols": []}
+    return {"symbols": list_symbols()}
+
+
+@app.get("/api/v1/market-data/{symbol}")
+def market_data_symbol(
+    symbol: str, request: Request, _claims=Depends(require("market-data:read"))
+):
+    found = get_symbol(symbol)
+    if found is None:
+        raise HTTPException(
+            status_code=404,
+            detail=error_body("not_found", "Unknown symbol", request_id_of(request)),
+        )
+    return found
+
+
+@app.get("/api/v1/market-data/{symbol}/trades")
+def market_data_trades(
+    symbol: str,
+    request: Request,
+    limit: int = 20,
+    _claims=Depends(require("market-data:read")),
+):
+    found = recent_trades(symbol, limit)
+    if found is None:
+        raise HTTPException(
+            status_code=400,
+            detail=error_body(
+                "invalid_symbol", "Invalid symbol", request_id_of(request)
+            ),
+        )
+    return {"symbol": symbol, "trades": found}
 
 
 @app.get("/api/v1/audit-events")
