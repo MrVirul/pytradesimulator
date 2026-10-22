@@ -14,3 +14,5 @@ logs
 store
 docker-compose.yml
 README.rst
+secure_api
+docs

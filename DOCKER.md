@@ -68,7 +68,7 @@ containers with a terminal attached.
 # 1. Build the image
 docker build -f DockerFile -t pytradesim:latest .
 
-# 2. Start the exchange
+# 2. Start the exchange. FIX ports stay on the Compose network.
 docker compose up -d exchange
 
 # 3. Follow the logs
@@ -91,12 +91,14 @@ docker compose up -d exchange
 docker compose ps          # STATUS should read "healthy"
 ```
 
-The ports are published on the host:
+Compose does not publish FIX to the host. Other Compose services reach the
+exchange at `exchange:5001` and `exchange:5002`. To publish those ports for
+a client that runs on the host, use the `docker run -p` example below.
 
-| Host port | Service |
+| Compose service port | Who can connect |
 |---|---|
-| `5001` | FIX order entry |
-| `5002` | FIX market data |
+| `5001` | Containers on the Compose network (FIX order entry) |
+| `5002` | Containers on the Compose network (FIX market data) |
 
 ### Without Compose
 
@@ -324,6 +326,11 @@ docker compose logs -f exchange
 # Check the health of the container
 docker inspect --format '{{.State.Health.Status}}' pytradesim-exchange
 
+# Run the scripted FIX baseline. Rebuild first so the image contains the
+# CLIENT3 and MDCLIENT3 acceptor sessions.
+docker compose build exchange
+docker compose --profile baseline run --rm fix-baseline
+
 # Run the test suite
 docker run --rm pytradesim:latest test
 
@@ -338,6 +345,11 @@ docker compose down
 ```
 
 ## Troubleshooting
+
+**`exec /app/docker/entrypoint.sh: no such file or directory`.**
+The script was copied into the image with Windows CRLF line endings.
+`.gitattributes` keeps `docker/entrypoint.sh` and the FIX configs as LF.
+Rebuild the image after pulling that attribute.
 
 **The client hangs on "Enter choice" and never logs on.**
 The exchange is not reachable. Check that it is healthy and that

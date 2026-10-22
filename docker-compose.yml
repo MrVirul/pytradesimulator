@@ -8,9 +8,11 @@ services:
     image: pytradesim:latest
     container_name: pytradesim-exchange
     command: ["server"]
-    ports:
-      - "5001:5001"  # FIX order entry
-      - "5002:5002"  # FIX market data
+    # FIX stays on the Compose network. Publishing 5001 or 5002 would
+    # expose the unauthenticated legacy sessions on the host.
+    expose:
+      - "5001"  # FIX order entry
+      - "5002"  # FIX market data
     environment:
       PYTRADESIM_INTERNAL_PORT: "9000"
     healthcheck:
@@ -58,3 +60,24 @@ services:
     healthcheck:
       disable: true
     profiles: ["market-client"]
+
+  # Scripted order match. The legacy image must be rebuilt after the
+  # CLIENT3 and MDCLIENT3 session blocks change, because those files are
+  # copied into the image.
+  #   docker compose build exchange
+  #   docker compose --profile baseline run --rm fix-baseline
+  fix-baseline:
+    build:
+      context: .
+      dockerfile: DockerFile
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/tools/fix_baseline.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      BASELINE_SYMBOL: BASELINE
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    profiles: ["baseline"]
