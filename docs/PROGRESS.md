@@ -48,7 +48,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 ## Milestone 6 — Evidence
 
 - **M6.1** Automated checks for 401, 403, and 429. Status: `done`. Exit: they pass in the API test run.
-- **M6.2** API latency p50, p95, and p99 under a stated concurrency, separate from feed age. Status: `todo`. Exit: numbers and the method are written in this file.
+- **M6.2** API latency p50, p95, and p99 under a stated concurrency, separate from feed age. Status: `done`. Exit: numbers and the method are written in this file.
 - **M6.3** Legacy order-book tests still pass unchanged. Status: `todo`. Exit: `pytest tests -v` or `docker run --rm pytradesim test` is green.
 - **M6.4** Deployment and limitation notes brought in line with the running Compose file. Status: `todo`. Exit: a new checkout can follow the doc and reach the definition of done in `docs/ARCHITECTURE.md`.
 
@@ -122,6 +122,20 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - The matching book is process memory. A restart drops it. Stored snapshots are not a recovered book.
 - `MarketDepth(10)` is not applied. Empty sides are omitted from `35=W`.
 
+## API latency
+
+Recorded 2026-10-22. These numbers are HTTP response time. They are not the age of the stored book, and `received_at` was not used.
+
+Method: from the host, 8 warmup requests were discarded, then 160 requests to `GET http://127.0.0.1:8080/api/v1/market-data/BASELINE` ran with 8 calls in flight. The caller was a Keycloak client-credentials token for `pytradesim-scenario` (`market_data_client`, audience `pytradesim-api`). Each sample is `time.perf_counter` around one request on a shared HTTP client. Percentiles use linear interpolation: rank `(n - 1) * (p / 100)` between the adjacent sorted samples. For this sample only, that client's market-data policy was raised above the default 60 per minute so the burst would not be rejected, then restored to 1 per 60 seconds. All 160 measured calls returned 200. The wall clock for those calls was 950.84 ms.
+
+| Percentile | Latency |
+| --- | --- |
+| p50 | 46.34 ms |
+| p95 | 57.60 ms |
+| p99 | 64.49 ms |
+
+The fastest call was 31.04 ms and the slowest was 64.99 ms.
+
 ## Decision log
 
 - **2026-10-22** — Integration boundary is the FIX market-data session on port 5002 (`MDCLIENT3`). The pickle socket on port 9000 stays between the two legacy processes.
@@ -154,3 +168,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M5.3. `/ui/scenarios` lists the five scenario names and the scenario rate limit. A run posts only the scenario name, and the scenario worker sends the fixed CLIENT3 orders. Checked with `pytest secure_api/tests/test_scenarios_page.py` in the API image (4 passed). Signing in as admin and running `spread_widening` finished `passed`. The SPREAD `spread_widening` alert count went from 2 to 3, and the alerts page showed that row. A graphical browser was not driven.
 - **2026-10-22** — M5.4. `unauthorized_access` calls audit as a market-data client and stores a 403. `rate_limit_abuse` allows one market-data read for that client and stores a 429 on the next. The audit row uses the same request id the lab shows, and neither scenario sends an order. Checked with `pytest secure_api/tests/test_access_scenarios.py secure_api/tests/test_scenarios.py secure_api/tests/test_scenarios_page.py` in the API image (9 passed). Signing in as admin, both runs finished `passed` and the audit page showed each request id. The stored rows are 403 `missing_scope` and 429 `rate_limited`. A graphical browser was not driven.
 - **2026-10-22** — M6.1. The API test run checks 401 for a missing, malformed, expired, wrong-audience, and wrong-issuer token, 403 for a market-data client calling audit and alerts, and 429 with `Retry-After` after the configured limit. Each body returns that call's request id. Checked with `pytest secure_api/tests/test_api.py` in the API image (11 passed, none skipped).
+- **2026-10-22** — M6.2. Timed `GET /api/v1/market-data/BASELINE` from the host at concurrency 8, 160 samples after 8 warmup calls. p50 46.34 ms, p95 57.60 ms, p99 64.49 ms. The timer is the HTTP call, not the book's age. All 160 responses were 200. The temporary rate-limit raise for that client was restored to 1 per 60 seconds.
