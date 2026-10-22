@@ -339,6 +339,8 @@ docker compose run --rm migrate
 # After sign-in, the market book is http://127.0.0.1:8080/ui/market.
 # Alerts are http://127.0.0.1:8080/ui/alerts for analyst and admin.
 # Audit search is http://127.0.0.1:8080/ui/audit for admin.
+# Swagger UI is http://127.0.0.1:8080/docs and uses the live OpenAPI document.
+# Authorize there with Keycloak (PKCE). The redirect is /docs/oauth2-redirect.
 # Demo users are market/market, analyst/analyst, and admin/admin.
 # The session cookie is HttpOnly. The access token is not sent to the page.
 docker compose up -d keycloak api

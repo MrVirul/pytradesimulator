@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 
+from secure_api.app.auth import oidc
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
@@ -17,7 +18,15 @@ from secure_api.app.services.audit import list_events, search_error, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 from secure_api.app.web.routes import router
 
-app = FastAPI(title="pytradesim secure API", version="1")
+app = FastAPI(
+    title="pytradesim secure API",
+    version="1",
+    swagger_ui_init_oauth={
+        "clientId": os.environ.get("KEYCLOAK_CLIENT_ID", "pytradesim-ui"),
+        "scopes": "openid",
+        "usePkceWithAuthorizationCodeGrant": True,
+    },
+)
 app.include_router(router)
 app.mount(
     "/static",
@@ -226,3 +235,37 @@ def audit_events(
             recorded_to,
         )
     }
+
+
+def custom_openapi():
+    """Serve Swagger from this process's routes, with Keycloak PKCE as a way to authorize."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    from fastapi.openapi.utils import get_openapi
+
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    issuer = oidc.public_issuer()
+    components = schema.setdefault("components", {})
+    schemes = components.setdefault("securitySchemes", {})
+    schemes["keycloak"] = {
+        "type": "oauth2",
+        "flows": {
+            "authorizationCode": {
+                "authorizationUrl": issuer + "/protocol/openid-connect/auth",
+                "tokenUrl": issuer + "/protocol/openid-connect/token",
+                "scopes": {"openid": "Identify the caller"},
+            }
+        },
+    }
+    for path, methods in schema.get("paths", {}).items():
+        for method, operation in methods.items():
+            if method not in ("get", "post", "put", "delete", "patch"):
+                continue
+            security = operation.get("security") or []
+            if security:
+                operation["security"] = security + [{"keycloak": ["openid"]}]
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi
