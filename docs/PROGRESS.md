@@ -16,7 +16,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 
 ## Milestone 2 — FIX adapter and PostgreSQL
 
-- **M2.1** Normalize and validate `35=W`. Status: `todo`. Exit: invalid prices, quantities, symbols, and entry types are rejected.
+- **M2.1** Normalize and validate `35=W`. Status: `done`. Exit: invalid prices, quantities, symbols, and entry types are rejected.
 - **M2.2** Migrations for the read-model tables. Status: `todo`. Exit: a clean database reaches the schema in `docs/ARCHITECTURE.md`.
 - **M2.3** Subscriber process on the legacy image. Status: `todo`. Exit: `MDCLIENT3` subscribes from `onLogon`, reconnects, and does not run inside a web worker.
 - **M2.4** Persist latest snapshot, observations, and trades. Status: `todo`. Exit: a resting order shows up as a row without a second pickle consumer.
@@ -135,3 +135,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 ## Log
 
 - **2026-10-22** — M1.1–M1.5. Added the two acceptor sessions, initiator configs, `fix_baseline.py`, and the private Compose network. Host pytest and the image suite both passed 22 tests. `fix-baseline` passed for symbol `BASELINE` at 675 @ 189. `.gitattributes` forces LF on the entrypoint and FIX configs so a Windows checkout can build the image.
+- **2026-10-22** — M2.1. `secure_api/adapter/normalizer.py` rejects bad symbols, prices, quantities, and entry types, and keeps identical trade prints. Checked with `pytest secure_api/tests/test_normalizer.py` (14 passed) and `pytest tests` (22 passed).
