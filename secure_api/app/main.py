@@ -1,5 +1,6 @@
 """Read API. Authorization runs before any database call."""
 
+import os
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -8,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
+from secure_api.app.auth.rate_limit import consume
 
 app = FastAPI(title="pytradesim secure API", version="1")
 _bearer = HTTPBearer(auto_error=False)
@@ -66,6 +68,24 @@ def require(permission):
                 status_code=403,
                 detail=error_body("forbidden", "Missing permission", request_id),
             )
+        if os.environ.get("RATE_LIMIT_REQUIRED", "1") != "0":
+            role = claims["roles"][0] if claims.get("roles") else ""
+            decision = consume(claims["client_id"], role, permission)
+            if not decision.allowed:
+                request.state.decision = "denied"
+                request.state.reason = (
+                    "limiter_unavailable" if decision.unavailable else "rate_limited"
+                )
+                status = 503 if decision.unavailable else 429
+                code = "unavailable" if decision.unavailable else "rate_limit_exceeded"
+                headers = None
+                if status == 429:
+                    headers = {"Retry-After": str(decision.retry_after)}
+                raise HTTPException(
+                    status_code=status,
+                    detail=error_body(code, "Request limit exceeded", request_id),
+                    headers=headers,
+                )
         request.state.decision = "allowed"
         request.state.reason = "ok"
         return claims

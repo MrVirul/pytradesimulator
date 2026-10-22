@@ -26,7 +26,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 
 - **M3.1** JWT checks for signature, issuer, audience, and expiry. Status: `done`. Exit: missing, expired, malformed, and wrong-audience tokens get 401.
 - **M3.2** Shared policy module. Status: `done`. Exit: a market-data token gets 403 on audit.
-- **M3.3** Postgres rate limits, fail closed. Status: `todo`. Exit: a burst over the configured limit gets 429 and `Retry-After`.
+- **M3.3** Postgres rate limits, fail closed. Status: `done`. Exit: a burst over the configured limit gets 429 and `Retry-After`.
 - **M3.4** `GET /api/v1/market-data` and the symbol and trades routes. Status: `todo`. Exit: a scripted FIX order is visible through REST, with sequence and `received_at`.
 - **M3.5** Audit middleware. Status: `todo`. Exit: each protected call has one row and the request id, and the token is not in the row.
 
@@ -141,3 +141,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M2.4. A `CLIENT3` bid of 40 `BASELINE` at 51 was stored as `market_snapshots` sequence 1, status `live`, bids `[{price: 51.0, quantity: 40.0}]`. Checked with `docker compose --profile order run --rm place-order` and a SQL select. No second consumer on port 9000.
 - **2026-10-22** — M2.5. Restarting the subscriber marked `BASELINE` `stale` while `feed_status.logged_on` returned to true. A later bid at 53 made the row `live` again, with both price levels. `psycopg` transactions use `connection.transaction()` so the connection stays open.
 - **2026-10-22** — M3.1 and M3.2. RS256 tokens are checked for signature, issuer, audience, and expiry. A `market_data_client` token can call market data and receives 403 on audit. Checked with `pytest secure_api/tests/test_api.py` (7 passed).
+- **2026-10-22** — M3.3. Each protected call consumes a Postgres counter for the token's client id. The limiter denies the call when the store is down. A subject allowed 2 market-data requests in the window received 429 and `Retry-After` on the third. Checked with pytest in the API image on the Compose network after `002_rate_limits.sql`. Host `pytest secure_api/tests/test_api.py` skips that case when `DATABASE_URL` is unset and still passes the token checks.

@@ -1,4 +1,6 @@
+import os
 import time
+import uuid
 
 import jwt
 import pytest
@@ -41,6 +43,7 @@ def client(keys, monkeypatch_module):
     monkeypatch_module.setenv("JWT_PUBLIC_KEY", public)
     monkeypatch_module.setenv("JWT_ISSUER", ISSUER)
     monkeypatch_module.setenv("JWT_AUDIENCE", AUDIENCE)
+    monkeypatch_module.setenv("RATE_LIMIT_REQUIRED", "0")
     return TestClient(app)
 
 
@@ -114,3 +117,41 @@ def test_market_data_token_cannot_read_audit(client, keys):
     )
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "forbidden"
+
+
+def test_rate_limit_returns_429(keys, monkeypatch):
+    if not os.environ.get("DATABASE_URL"):
+        pytest.skip("DATABASE_URL is not set")
+    import psycopg
+
+    subject = "rate-{0}".format(uuid.uuid4().hex[:12])
+    monkeypatch.setenv("RATE_LIMIT_REQUIRED", "1")
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO rate_limit_policies (
+                    subject, category, requests_allowed, window_seconds
+                )
+                VALUES (%s, 'market_data', 2, 60)
+                ON CONFLICT (subject, category) DO UPDATE
+                SET requests_allowed = 2
+                """,
+                (subject,),
+            )
+    private, _public = keys
+    token = _token(
+        private,
+        ["market_data_client"],
+        sub=subject,
+        client_id=subject,
+    )
+    headers = {"Authorization": "Bearer {0}".format(token)}
+    local = TestClient(app)
+    assert local.get("/api/v1/market-data", headers=headers).status_code == 200
+    assert local.get("/api/v1/market-data", headers=headers).status_code == 200
+    denied = local.get("/api/v1/market-data", headers=headers)
+    assert denied.status_code == 429
+    assert denied.json()["error"]["code"] == "rate_limit_exceeded"
+    assert int(denied.headers["retry-after"]) >= 1
+

@@ -106,11 +106,15 @@ services:
       PGUSER: pytradesim
       PGDATABASE: pytradesim
     volumes:
-      - ./secure_api/migrations/001_read_model.sql:/migrations/001_read_model.sql:ro
+      - ./secure_api/migrations:/migrations:ro
     entrypoint:
       - sh
       - -c
-      - psql -v ON_ERROR_STOP=1 -f /migrations/001_read_model.sql
+      - |
+        set -eu
+        for file in /migrations/*.sql; do
+          psql -v ON_ERROR_STOP=1 -f "$$file"
+        done
     depends_on:
       postgres:
         condition: service_healthy
