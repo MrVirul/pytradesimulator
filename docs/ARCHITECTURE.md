@@ -69,6 +69,7 @@ Browser login is Authorization Code with PKCE. The session cookie is `HttpOnly` 
 - `surveillance_alerts` — rule, severity, symbol, observed value, threshold, time
 - `audit_events` — identity, action, decision, request id, status, latency
 - `rate_limit_policies` — client or role, endpoint category, limit, window
+- `feed_status` — one row: FIX logon flag and the time of the last received message
 
 The legacy publisher collapses identical `(price, quantity)` pairs inside one flush. The subscriber does not collapse trades across snapshots. An ingestion id is not an exchange trade id.
 

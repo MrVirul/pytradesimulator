@@ -5,3 +5,4 @@ docker/entrypoint.sh text eol=lf
 DockerFile text eol=lf
 *.cfg text eol=lf
 *.sh text eol=lf
+*.sql text eol=lf

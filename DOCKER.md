@@ -331,6 +331,11 @@ docker inspect --format '{{.State.Health.Status}}' pytradesim-exchange
 docker compose build exchange
 docker compose --profile baseline run --rm fix-baseline
 
+# Create the read-model database and apply the schema.
+docker compose up -d postgres
+docker compose run --rm migrate
+docker compose exec postgres psql -U pytradesim -d pytradesim -c "\dt"
+
 # Run the test suite
 docker run --rm pytradesim:latest test
 
