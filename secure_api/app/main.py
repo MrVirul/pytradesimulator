@@ -1,6 +1,7 @@
 """Read API. Authorization runs before any database call."""
 
 import os
+import threading
 import time
 import uuid
 
@@ -16,6 +17,7 @@ from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, search_error, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
+from secure_api.app.services.surveillance import watch_books
 from secure_api.app.web.routes import router
 
 app = FastAPI(
@@ -34,6 +36,16 @@ app.mount(
     name="static",
 )
 _bearer = HTTPBearer(auto_error=False)
+
+
+@app.on_event("startup")
+def _start_surveillance():
+    """Judge new books in this process. The subscriber does not write alerts."""
+    if os.environ.get("SURVEILLANCE_ENABLED", "0") != "1":
+        return
+    if not os.environ.get("DATABASE_URL"):
+        return
+    threading.Thread(target=watch_books, name="surveillance", daemon=True).start()
 
 
 @app.exception_handler(HTTPException)

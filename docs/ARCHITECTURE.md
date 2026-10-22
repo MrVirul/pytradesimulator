@@ -73,6 +73,8 @@ Browser login is Authorization Code with PKCE. The session cookie is `HttpOnly` 
 
 The legacy publisher collapses identical `(price, quantity)` pairs inside one flush. The subscriber does not collapse trades across snapshots. An ingestion id is not an exchange trade id.
 
+The API, not the subscriber, reads each new `market_observations` row. `price_movement` uses the highest trade price on that snapshot, or the best bid when the snapshot has no trade. `spread_widening` is the best ask minus the best bid, and it stays quiet when either side is missing. `volume` sums trade quantities for the symbol inside the rule window. An alert is written when the observed value is above the rule threshold. The row stores the rule, the observed value, the threshold, and the observation time. The same observation is recorded once.
+
 Audit rows are append-only for the API database role. A hash chain can be added later. A hash alone is not tamper-proof storage.
 
 ## Rate limits

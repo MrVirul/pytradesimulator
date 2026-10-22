@@ -40,7 +40,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 
 ## Milestone 5 — Surveillance and scenario harness
 
-- **M5.1** Price, spread, and volume rules. Status: `todo`. Exit: each alert stores the rule, observed value, threshold, and time.
+- **M5.1** Price, spread, and volume rules. Status: `done`. Exit: each alert stores the rule, observed value, threshold, and time.
 - **M5.2** Private `CLIENT3` harness with named scenarios only. Status: `todo`. Exit: there is no request field that carries a free-form order.
 - **M5.3** Scenario lab page. Status: `todo`. Exit: an admin run produces an alert on the alerts page.
 - **M5.4** Unauthorized-access and rate-limit scenarios. Status: `todo`. Exit: both leave audit rows that point at the same request id.
@@ -149,3 +149,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M4.3. `/ui/alerts` lists rule, symbol, severity, observed value, threshold, and time. A symbol filter hides the other row. `market_data_client` receives 403 on the page and on `GET /api/v1/alerts`. Checked with `pytest secure_api/tests/test_alerts_page.py` in the API image (3 passed).
 - **2026-10-22** — M4.4. `/ui/audit` filters by request id, client, action, decision, status, and time. A 403 and a 429 were found again by request id. A market-data client receives 403 on the page. Checked with `pytest secure_api/tests/test_audit_page.py secure_api/tests/test_api.py` in the API image (12 passed).
 - **2026-10-22** — M4.5. `/docs` serves Swagger UI from the live `/openapi.json`, with Keycloak PKCE as an authorize option. The realm accepts `http://localhost:8080/docs/oauth2-redirect`. A Keycloak access token with audience `pytradesim-api` and role `market_data_client` returned 200 for `GET /api/v1/market-data`. Checked with `pytest secure_api/tests/test_docs.py` (passed) and a scripted PKCE login against the running stack. A graphical browser was not driven.
+- **2026-10-22** — M5.1. The API evaluates `price_movement`, `spread_widening`, and `volume` on each new market observation. An alert stores the rule, the observed value, the threshold, and the observation time, and the same observation is not written twice. Checked with `pytest secure_api/tests/test_surveillance.py` in the API image (4 passed). A book inserted after the API started produced those three alerts from the API process.

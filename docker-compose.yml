@@ -193,6 +193,7 @@ services:
       JWT_ISSUER: http://localhost:8081/realms/pytradesim
       JWT_AUDIENCE: pytradesim-api
       JWT_JWKS_URL: http://keycloak:8080/realms/pytradesim/protocol/openid-connect/certs
+      SURVEILLANCE_ENABLED: "1"
     depends_on:
       migrate:
         condition: service_completed_successfully
