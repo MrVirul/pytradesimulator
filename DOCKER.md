@@ -336,6 +336,7 @@ docker compose up -d postgres
 docker compose run --rm migrate
 
 # Start Keycloak and the read API. Browser login is http://127.0.0.1:8080/ui/login.
+# After sign-in, the market book is http://127.0.0.1:8080/ui/market.
 # Demo users are market/market, analyst/analyst, and admin/admin.
 # The session cookie is HttpOnly. The access token is not sent to the page.
 docker compose up -d keycloak api

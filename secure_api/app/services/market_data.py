@@ -19,6 +19,27 @@ def _levels(value):
     ]
 
 
+def feed_health():
+    with lock():
+        conn = connection()
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT logged_on, last_message_at
+                    FROM feed_status
+                    WHERE id = 1
+                    """
+                )
+                row = cursor.fetchone()
+    if row is None:
+        return {"logged_on": False, "last_message_at": None}
+    return {
+        "logged_on": bool(row[0]),
+        "last_message_at": None if row[1] is None else row[1].isoformat(),
+    }
+
+
 def list_symbols():
     with lock():
         conn = connection()

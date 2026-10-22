@@ -2,6 +2,7 @@
 
 import os
 import secrets
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -18,6 +19,14 @@ from secure_api.app.auth.browser import (
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.oidc import authorize_url, exchange_code
 from secure_api.app.auth.policies import allows
+from secure_api.app.auth.rate_limit import consume
+from secure_api.app.services.market_data import (
+    SYMBOL_PATTERN,
+    feed_health,
+    get_symbol,
+    list_symbols,
+    recent_trades,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(
@@ -161,3 +170,98 @@ def logout(request: Request, csrf_token: str = Form("")):
     response = RedirectResponse("/ui/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response
+
+
+def _age_seconds(received_at):
+    if not received_at:
+        return None
+    parsed = datetime.fromisoformat(received_at)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    elapsed = datetime.now(timezone.utc) - parsed
+    return max(0, int(elapsed.total_seconds()))
+
+
+def _book_context(symbol):
+    book = get_symbol(symbol)
+    trades = recent_trades(symbol, 20) or []
+    health = feed_health()
+    if book is None:
+        return {
+            "symbol": symbol,
+            "status": "uninitialized",
+            "received_at": None,
+            "age_seconds": None,
+            "ingest_sequence": None,
+            "bids": [],
+            "asks": [],
+            "trades": [],
+            "logged_on": health["logged_on"],
+        }
+    return {
+        "symbol": book["symbol"],
+        "status": book["status"],
+        "received_at": book["received_at"],
+        "age_seconds": _age_seconds(book["received_at"]),
+        "ingest_sequence": book["ingest_sequence"],
+        "bids": book["bids"],
+        "asks": book["asks"],
+        "trades": trades,
+        "logged_on": health["logged_on"],
+    }
+
+
+def _market_guard(request):
+    row = _open_session(request)
+    if row is None:
+        return RedirectResponse("/ui/login", status_code=302)
+    if os.environ.get("RATE_LIMIT_REQUIRED", "1") == "0":
+        return None
+    role = row["roles"][0] if row.get("roles") else ""
+    decision = consume(row["client_id"], role, "market-data:read")
+    if decision.allowed:
+        return None
+    request.state.decision = "denied"
+    request.state.reason = (
+        "limiter_unavailable" if decision.unavailable else "rate_limited"
+    )
+    status = 503 if decision.unavailable else 429
+    headers = None
+    if status == 429:
+        headers = {"Retry-After": str(decision.retry_after)}
+    return HTMLResponse(
+        '<section id="market-book"><p>Request limit exceeded</p></section>',
+        status_code=status,
+        headers=headers,
+    )
+
+
+@router.get("/ui/market", response_class=HTMLResponse)
+def market_page(request: Request, symbol: str = "BASELINE"):
+    blocked = _market_guard(request)
+    if blocked is not None:
+        return blocked
+    if SYMBOL_PATTERN.match(symbol or "") is None:
+        raise HTTPException(
+            status_code=400,
+            detail=_error("invalid_symbol", "Invalid symbol", request),
+        )
+    choices = [item["symbol"] for item in list_symbols()]
+    if symbol not in choices:
+        choices.append(symbol)
+    context = _book_context(symbol)
+    context["symbol_choices"] = choices
+    return templates.TemplateResponse(request, "market.html", context)
+
+
+@router.get("/ui/market-data/{symbol}/book", response_class=HTMLResponse)
+def market_book(request: Request, symbol: str):
+    blocked = _market_guard(request)
+    if blocked is not None:
+        return blocked
+    if SYMBOL_PATTERN.match(symbol or "") is None:
+        raise HTTPException(
+            status_code=400,
+            detail=_error("invalid_symbol", "Invalid symbol", request),
+        )
+    return templates.TemplateResponse(request, "book.html", _book_context(symbol))

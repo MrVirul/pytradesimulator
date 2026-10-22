@@ -7,6 +7,7 @@ import uuid
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
@@ -17,6 +18,11 @@ from secure_api.app.web.routes import router
 
 app = FastAPI(title="pytradesim secure API", version="1")
 app.include_router(router)
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(os.path.dirname(__file__), "web", "static")),
+    name="static",
+)
 _bearer = HTTPBearer(auto_error=False)
 
 

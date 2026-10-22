@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ symbol }} market</title>
+  <meta name="htmx-config" content='{"historyEnabled": false, "historyCacheSize": 0}'>
+  <link rel="stylesheet" href="/static/market.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <h1>Market</h1>
+    <a href="/ui">Account</a>
+  </header>
+  <form class="symbol-form" method="get" action="/ui/market">
+    <label for="symbol">Symbol</label>
+    <select id="symbol" name="symbol">
+      {% for item in symbol_choices %}
+      <option value="{{ item }}"{% if item == symbol %} selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Show</button>
+  </form>
+  {% include "book.html" %}
+</body>
+</html>

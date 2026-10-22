@@ -8,6 +8,7 @@
   <h1>Signed in</h1>
   <p>Client <span id="client-id">{{ client_id }}</span></p>
   <p>Roles {{ roles }}</p>
+  <p><a href="/ui/market">Market</a></p>
   <form method="post" action="/ui/logout">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit">Sign out</button>

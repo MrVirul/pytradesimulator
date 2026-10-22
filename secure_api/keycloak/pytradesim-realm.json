@@ -43,18 +43,30 @@
     {
       "username": "market",
       "enabled": true,
+      "email": "market@example.test",
+      "emailVerified": true,
+      "firstName": "Market",
+      "lastName": "Client",
       "credentials": [{"type": "password", "value": "market", "temporary": false}],
       "realmRoles": ["market_data_client"]
     },
     {
       "username": "analyst",
       "enabled": true,
+      "email": "analyst@example.test",
+      "emailVerified": true,
+      "firstName": "Analyst",
+      "lastName": "Client",
       "credentials": [{"type": "password", "value": "analyst", "temporary": false}],
       "realmRoles": ["surveillance_analyst"]
     },
     {
       "username": "admin",
       "enabled": true,
+      "email": "admin@example.test",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "Client",
       "credentials": [{"type": "password", "value": "admin", "temporary": false}],
       "realmRoles": ["security_admin"]
     }

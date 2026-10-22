@@ -1,0 +1,57 @@
+<section
+  id="market-book"
+  class="book"
+  hx-get="/ui/market-data/{{ symbol }}/book"
+  hx-trigger="load, every 2s"
+  hx-swap="outerHTML">
+  <header>
+    <h2>{{ symbol }}</h2>
+    <p class="status status-{{ status }}">Status {{ status }}</p>
+  </header>
+  <dl class="facts">
+    <div><dt>Received</dt><dd>{{ received_at or "—" }}</dd></div>
+    <div><dt>Age</dt><dd>{% if age_seconds is not none %}{{ age_seconds }}s{% else %}—{% endif %}</dd></div>
+    <div><dt>Sequence</dt><dd>{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</dd></div>
+    <div><dt>FIX session</dt><dd>{% if logged_on %}logged on{% else %}logged off{% endif %}</dd></div>
+  </dl>
+  <div class="sides">
+    <table>
+      <caption>Bids</caption>
+      <thead><tr><th>Price</th><th>Quantity</th></tr></thead>
+      <tbody>
+        {% for level in bids %}
+        <tr><td>{{ level.price }}</td><td>{{ level.quantity }}</td></tr>
+        {% else %}
+        <tr><td colspan="2">No bids</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <table>
+      <caption>Asks</caption>
+      <thead><tr><th>Price</th><th>Quantity</th></tr></thead>
+      <tbody>
+        {% for level in asks %}
+        <tr><td>{{ level.price }}</td><td>{{ level.quantity }}</td></tr>
+        {% else %}
+        <tr><td colspan="2">No asks</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <table>
+    <caption>Recent trades</caption>
+    <thead><tr><th>Ingestion id</th><th>Price</th><th>Quantity</th><th>Received</th></tr></thead>
+    <tbody>
+      {% for trade in trades %}
+      <tr>
+        <td>{{ trade.ingestion_id }}</td>
+        <td>{{ trade.price }}</td>
+        <td>{{ trade.quantity }}</td>
+        <td>{{ trade.received_at }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">No trades</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
