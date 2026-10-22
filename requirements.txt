@@ -1,0 +1,8 @@
+# Runtime and development dependencies for the container image.
+# Versions are pinned to the ones recorded in poetry.lock.
+click==7.1.1
+docutils==0.16
+flake8==3.7.9
+prettytable==2.1.0
+pytest==5.4.1
+quickfix==1.15.1

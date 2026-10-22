@@ -1,0 +1,63 @@
+--- a/C++/AtomicCount.h
++++ b/C++/AtomicCount.h
+@@ -107,6 +107,8 @@
+ };
+ 
+ #else
++
++#if defined(__i386__) || defined(__x86_64__)
+ 
+   //
+   //  boost/detail/atomic_count_gcc_x86.hpp
+@@ -171,6 +173,51 @@
+     }
+   };
+ 
++#else
++
++  //
++  //  Portable atomic count built on compiler intrinsics, used on
++  //  architectures the x86 inline assembly above cannot be assembled for.
++  //
++
++  class atomic_count
++  {
++  public:
++
++    explicit atomic_count( long v ) : value_(static_cast<int>(v)) {}
++
++    long operator++()
++    {
++      return atomic_exchange_and_add( &value_, 1 ) + 1;
++    }
++
++    long operator--()
++    {
++      return atomic_exchange_and_add( &value_, -1 ) - 1;
++    }
++
++    operator long() const
++    {
++      return atomic_exchange_and_add( &value_, 0 );
++    }
++
++  private:
++
++    atomic_count( atomic_count const & );
++    atomic_count & operator=( atomic_count const & );
++
++    mutable int value_;
++
++  private:
++
++    static int atomic_exchange_and_add(int * pw, int dv)
++    {
++      return __atomic_fetch_add( pw, dv, __ATOMIC_SEQ_CST );
++    }
++  };
++
++#endif
++
+ #endif
+ 
+ }

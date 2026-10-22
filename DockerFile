@@ -1,0 +1,102 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Builder stage
+#
+# quickfix only publishes a source distribution, so it has to be compiled.
+# The toolchain needed for that lives in this stage only and never reaches
+# the runtime image.
+# ---------------------------------------------------------------------------
+FROM python:3.9-slim-bookworm AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_ROOT_USER_ACTION=ignore
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential patch \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY requirements.txt ./
+COPY docker/patches /build/patches
+
+# quickfix ships x86 only inline assembly in AtomicCount.h, which does not
+# assemble on aarch64. The patch swaps in a compiler intrinsic based
+# implementation so the image builds natively on both amd64 and arm64.
+RUN pip download --no-binary :all: --no-deps --dest /tmp/src "quickfix==1.15.1" \
+    && cd /tmp/src \
+    && tar xzf quickfix-1.15.1.tar.gz \
+    && cd quickfix-1.15.1 \
+    && patch -p1 < /build/patches/quickfix-1.15.1-portable-atomic-count.patch \
+    && pip wheel --wheel-dir /wheels . \
+    && rm -rf /tmp/src
+
+# The remaining dependencies. quickfix is excluded because the patched
+# source tree above already produced its wheel.
+RUN grep -v '^quickfix' requirements.txt > /tmp/requirements-rest.txt \
+    && pip wheel --wheel-dir /wheels -r /tmp/requirements-rest.txt \
+    && rm -f /tmp/requirements-rest.txt
+
+# Install everything into a virtualenv and drop the debug symbols of the
+# compiled extension, they make up most of its size.
+RUN python -m venv /venv \
+    && /venv/bin/pip install --no-index --find-links=/wheels -r requirements.txt \
+    && strip --strip-debug /venv/lib/python3.9/site-packages/_quickfix*.so \
+    && rm -rf /wheels
+
+
+# ---------------------------------------------------------------------------
+# Runtime stage
+# ---------------------------------------------------------------------------
+FROM python:3.9-slim-bookworm AS runtime
+
+LABEL org.opencontainers.image.title="pytradesim" \
+      org.opencontainers.image.description="FIX.4.2 exchange simulator" \
+      org.opencontainers.image.source="https://github.com/abhi-g80/pytradesimulator"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PATH="/venv/bin:${PATH}" \
+    APP_HOME=/app \
+    APP_DIR=/app/pytradesim \
+    EXCHANGE_HOST=127.0.0.1 \
+    PYTRADESIM_INTERNAL_PORT=9000 \
+    PYTRADESIM_FIX_PORT=5001 \
+    PYTRADESIM_MD_FIX_PORT=5002 \
+    PYTRADESIM_HEALTH_PORTS=5001,5002
+
+RUN groupadd --gid 1000 pytradesim \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash pytradesim
+
+COPY --from=builder /venv /venv
+
+WORKDIR /app
+
+COPY pytradesim /app/pytradesim
+COPY tests /app/tests
+COPY docker /app/docker
+
+# The gateways write their FIX logs and message stores under the app
+# directory, and they resolve their configuration relative to it.
+RUN chmod +x /app/docker/entrypoint.sh \
+             /app/docker/supervisor.py \
+             /app/docker/healthcheck.py \
+    && mkdir -p /app/pytradesim/logs /app/pytradesim/store \
+    && chown -R pytradesim:pytradesim /app
+
+USER pytradesim
+
+# 5001 accepts FIX order entry, 5002 accepts FIX market data requests.
+# The order book feed between the two gateways stays on the internal
+# port 9000 and is deliberately not published.
+EXPOSE 5001 5002
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["python", "/app/docker/healthcheck.py"]
+
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
+CMD ["server"]

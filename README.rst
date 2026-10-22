@@ -41,6 +41,59 @@ Running market data client and market data adapter.
     $ ./market_data.py
 
 
+Docker
+======
+
+The exchange is published as a single image. The exchange gateway and the
+market data gateway are started together by a supervisor, because they pass
+order books to each other over a ``localhost`` channel and therefore have to
+share a network namespace.
+
+See ``DOCKER.md`` for the full walk through, including a demonstration of
+placing and matching an order.
+
+.. code-block:: bash
+
+    $ docker build -f DockerFile -t pytradesim .
+    $ docker network create pytradesim
+    $ docker run -d --name pytradesim-exchange --network pytradesim \
+        -p 5001:5001 -p 5002:5002 pytradesim
+    $ docker logs -f pytradesim-exchange
+
+Port ``5001`` accepts FIX order entry and port ``5002`` accepts FIX market
+data requests. The order book feed between the two gateways stays on the
+internal port ``9000`` and is not published.
+
+The clients are interactive, so run them with a terminal attached. They
+point at ``127.0.0.1`` by default, ``EXCHANGE_HOST`` moves them to the
+exchange container.
+
+.. code-block:: bash
+
+    $ docker run -it --network pytradesim -e EXCHANGE_HOST=pytradesim-exchange \
+        pytradesim client configs/client1.cfg
+    $ docker run -it --network pytradesim -e EXCHANGE_HOST=pytradesim-exchange \
+        pytradesim market-client configs/mdclient1.cfg
+
+Client containers are short lived, so their FIX sequence numbers start over
+at 1 while the long running exchange expects a higher number. The rendered
+client configuration sets ``ResetOnLogon`` to work around that, the
+exchange is told to reset its counters as well. Set ``RESET_ON_LOGON=N`` to
+turn it off.
+
+
+Docker Compose
+--------------
+
+Compose brings the exchange up and runs the clients on demand.
+
+.. code-block:: bash
+
+    $ docker compose up -d exchange
+    $ docker compose --profile client run --rm client
+    $ docker compose --profile market-client run --rm market-client
+
+
 Example
 =======
 
@@ -130,3 +183,9 @@ All tests should pass.
 .. code-block:: bash
 
     $ py.test tests -v
+
+The same suite runs inside the image,
+
+.. code-block:: bash
+
+    $ docker run --rm pytradesim test

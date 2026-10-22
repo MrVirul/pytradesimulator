@@ -1,0 +1,16 @@
+.git
+.github
+.gitignore
+.flake8
+.pre-commit-config.yaml
+*.pyc
+__pycache__
+.pytest_cache
+.mypy_cache
+.venv
+venv
+*.egg-info
+logs
+store
+docker-compose.yml
+README.rst

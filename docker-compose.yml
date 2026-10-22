@@ -1,0 +1,60 @@
+services:
+  # Runs both FIX gateways. They hand order books to each other over a
+  # localhost channel, so they have to share a container.
+  exchange:
+    build:
+      context: .
+      dockerfile: DockerFile
+    image: pytradesim:latest
+    container_name: pytradesim-exchange
+    command: ["server"]
+    ports:
+      - "5001:5001"  # FIX order entry
+      - "5002:5002"  # FIX market data
+    environment:
+      PYTRADESIM_INTERNAL_PORT: "9000"
+    healthcheck:
+      test: ["CMD", "python", "/app/docker/healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # Interactive trading client:
+  #   docker compose --profile client run --rm client
+  client:
+    build:
+      context: .
+      dockerfile: DockerFile
+    image: pytradesim:latest
+    command: ["client", "configs/client1.cfg"]
+    environment:
+      EXCHANGE_HOST: exchange
+    depends_on:
+      exchange:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    healthcheck:
+      disable: true
+    profiles: ["client"]
+
+  # Interactive market data client:
+  #   docker compose --profile market-client run --rm market-client
+  market-client:
+    build:
+      context: .
+      dockerfile: DockerFile
+    image: pytradesim:latest
+    command: ["market-client", "configs/mdclient1.cfg"]
+    environment:
+      EXCHANGE_HOST: exchange
+    depends_on:
+      exchange:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    healthcheck:
+      disable: true
+    profiles: ["market-client"]
