@@ -8,6 +8,9 @@
   {% if run.status == "passed" and run.symbol %}
   <p><a href="/ui/alerts?symbol={{ run.symbol }}">Alerts for {{ run.symbol }}</a></p>
   {% endif %}
+  {% if run.request_id %}
+  <p>Request <a href="/ui/audit?request_id={{ run.request_id }}">{{ run.request_id }}</a></p>
+  {% endif %}
   {% if run.status == "failed" %}
   <p>The scenario did not complete.</p>
   {% endif %}

@@ -32,6 +32,11 @@ def test_each_named_scenario_has_fixed_orders():
 
 def test_request_accepts_only_the_scenario_name():
     assert parse_request({"scenario": "volume"}) == "volume"
+    assert parse_request({"scenario": "unauthorized_access"}) == "unauthorized_access"
+    assert parse_request({"scenario": "rate_limit_abuse"}) == "rate_limit_abuse"
+    with pytest.raises(ScenarioError) as access:
+        orders_for("unauthorized_access")
+    assert access.value.reason == "unknown_scenario"
     assert resolve_scenario([], {"SCENARIO": "spread_widening"}) == "spread_widening"
     with pytest.raises(ScenarioError) as unknown:
         parse_request({"scenario": "custom"})

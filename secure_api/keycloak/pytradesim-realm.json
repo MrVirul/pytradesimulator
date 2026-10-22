@@ -40,6 +40,29 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "pytradesim-scenario",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "pytradesim-scenario",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "pytradesim-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -72,6 +95,16 @@
       "lastName": "Client",
       "credentials": [{"type": "password", "value": "admin", "temporary": false}],
       "realmRoles": ["security_admin"]
+    },
+    {
+      "username": "service-account-pytradesim-scenario",
+      "enabled": true,
+      "email": "scenario@example.test",
+      "emailVerified": true,
+      "firstName": "Scenario",
+      "lastName": "Client",
+      "serviceAccountClientId": "pytradesim-scenario",
+      "realmRoles": ["market_data_client"]
     }
   ]
 }

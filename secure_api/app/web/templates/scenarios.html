@@ -25,6 +25,7 @@
       <input type="hidden" name="scenario" value="{{ scenario.name }}">
       <button type="submit">Run</button>
     </form>
+    {% if not scenario.orders %}<p>Calls the API. It does not send an order.</p>{% endif %}
     {% else %}
     <p>Listed for the lab. It does not send an order.</p>
     {% endif %}

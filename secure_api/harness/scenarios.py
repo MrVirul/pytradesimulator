@@ -35,6 +35,9 @@ SCENARIOS = {
 }
 
 
+ACCESS_SCENARIOS = ("unauthorized_access", "rate_limit_abuse")
+
+
 class ScenarioError(Exception):
     def __init__(self, reason):
         super(ScenarioError, self).__init__(reason)
@@ -63,7 +66,9 @@ def parse_request(payload):
     name = payload.get("scenario")
     if not isinstance(name, str):
         raise ScenarioError("unknown_scenario")
-    return resolve_scenario([name], {})
+    if name in SCENARIOS or name in ACCESS_SCENARIOS:
+        return name
+    raise ScenarioError("unknown_scenario")
 
 
 def orders_for(name):

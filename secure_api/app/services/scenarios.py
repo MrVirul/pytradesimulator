@@ -1,7 +1,8 @@
 """Queue a named scenario. This module does not import QuickFIX or send an order."""
 
 from secure_api.app.db import connection, lock
-from secure_api.harness.scenarios import SCENARIOS, orders_for
+from secure_api.app.services.scenario_checks import CheckFailed, run_access_scenario
+from secure_api.harness.scenarios import ACCESS_SCENARIOS, SCENARIOS, orders_for
 
 LAB_SCENARIOS = (
     "price_movement",
@@ -14,8 +15,54 @@ LAB_SCENARIOS = (
 
 def scenario_choices():
     return [
-        {"name": name, "runnable": name in SCENARIOS} for name in LAB_SCENARIOS
+        {
+            "name": name,
+            "runnable": name in SCENARIOS or name in ACCESS_SCENARIOS,
+            "orders": name in SCENARIOS,
+        }
+        for name in LAB_SCENARIOS
     ]
+
+
+def _request_id(detail):
+    if isinstance(detail, str) and detail.startswith("req-"):
+        return detail
+    return ""
+
+
+def _insert(name, client_id, status, detail, symbol):
+    with lock():
+        conn = connection()
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO scenario_runs (
+                        scenario_name, requested_by, status, detail, finished_at
+                    )
+                    VALUES (%s, %s, %s, %s, CASE WHEN %s = 'pending' THEN NULL ELSE now() END)
+                    RETURNING id
+                    """,
+                    (name, client_id, status, detail, status),
+                )
+                run_id = cursor.fetchone()[0]
+    return {
+        "id": run_id,
+        "scenario": name,
+        "status": status,
+        "symbol": symbol,
+        "request_id": _request_id(detail),
+    }
+
+
+def start_named(name, client_id):
+    if name in ACCESS_SCENARIOS:
+        try:
+            outcome = run_access_scenario(name)
+        except (CheckFailed, Exception):
+            return _insert(name, client_id, "failed", "unavailable", "")
+        return _insert(name, client_id, outcome["status"], outcome["detail"], "")
+    return enqueue(name, client_id)
 
 
 def scenario_policy():
@@ -41,25 +88,7 @@ def scenario_policy():
 
 def enqueue(name, client_id):
     symbol, _orders = orders_for(name)
-    with lock():
-        conn = connection()
-        with conn.transaction():
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO scenario_runs (scenario_name, requested_by, status)
-                    VALUES (%s, %s, 'pending')
-                    RETURNING id
-                    """,
-                    (name, client_id),
-                )
-                run_id = cursor.fetchone()[0]
-    return {
-        "id": run_id,
-        "scenario": name,
-        "status": "pending",
-        "symbol": symbol,
-    }
+    return _insert(name, client_id, "pending", "", symbol)
 
 
 def get_run(run_id):
@@ -69,7 +98,7 @@ def get_run(run_id):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT id, scenario_name, status
+                    SELECT id, scenario_name, status, detail
                     FROM scenario_runs
                     WHERE id = %s
                     """,
@@ -86,4 +115,5 @@ def get_run(run_id):
         "scenario": row[1],
         "status": row[2],
         "symbol": symbol,
+        "request_id": _request_id(row[3]),
     }

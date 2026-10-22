@@ -341,6 +341,8 @@ docker compose run --rm migrate
 # The API applies price_movement, spread_widening, and volume to each new book.
 # The scenario lab is http://127.0.0.1:8080/ui/scenarios for admin.
 # A run posts only the scenario name. The scenario-worker sends the fixed CLIENT3 orders.
+# unauthorized_access and rate_limit_abuse call the API and do not send an order.
+# Each denied call is stored on an audit row with the request id shown in the lab.
 # Audit search is http://127.0.0.1:8080/ui/audit for admin.
 # Swagger UI is http://127.0.0.1:8080/docs and uses the live OpenAPI document.
 # Authorize there with Keycloak (PKCE). The redirect is /docs/oauth2-redirect.

@@ -1,5 +1,6 @@
 """Read API. Authorization runs before any database call."""
 
+import asyncio
 import os
 import threading
 import time
@@ -17,8 +18,8 @@ from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, search_error, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
-from secure_api.app.services.scenarios import enqueue
-from secure_api.harness.scenarios import ScenarioError, orders_for, parse_request
+from secure_api.app.services.scenarios import start_named
+from secure_api.harness.scenarios import ScenarioError, parse_request
 from secure_api.app.services.surveillance import watch_books
 from secure_api.app.web.routes import router
 
@@ -271,9 +272,7 @@ async def start_scenario(request: Request, claims=Depends(require("scenarios:run
             status_code=503,
             detail=error_body("unavailable", "Scenario runs are unavailable", request_id_of(request)),
         )
-    symbol, _orders = orders_for(name)
-    run = enqueue(name, claims["client_id"])
-    run["symbol"] = symbol
+    run = await asyncio.to_thread(start_named, name, claims["client_id"])
     return {"run": run}
 
 

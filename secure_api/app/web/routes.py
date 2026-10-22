@@ -1,5 +1,6 @@
 """Browser session. Cookies carry a session id. Tokens stay in the database."""
 
+import asyncio
 import os
 import secrets
 from datetime import datetime, timezone
@@ -23,10 +24,10 @@ from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, search_error
 from secure_api.app.services.scenarios import (
-    enqueue,
     get_run,
     scenario_choices,
     scenario_policy,
+    start_named,
 )
 from secure_api.harness.scenarios import ScenarioError, parse_request
 from secure_api.app.services.market_data import (
@@ -409,7 +410,7 @@ async def start_scenario(request: Request):
             status_code=400,
             detail=_error(error.reason, "Invalid scenario", request),
         )
-    run = enqueue(name, row["client_id"])
+    run = await asyncio.to_thread(start_named, name, row["client_id"])
     return RedirectResponse(
         "/ui/scenarios?run={0}".format(run["id"]), status_code=303
     )
