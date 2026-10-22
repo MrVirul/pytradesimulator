@@ -34,7 +34,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 
 - **M4.1** Keycloak Authorization Code with PKCE, cookie session, CSRF on posts. Status: `done`. Exit: the browser has no access token in local storage.
 - **M4.2** Market page and book fragment. Status: `done`. Exit: the fragment shows the last book, its age, and its status.
-- **M4.3** Alerts page. Status: `todo`. Exit: an analyst can filter alerts and a market-data client cannot open the page.
+- **M4.3** Alerts page. Status: `done`. Exit: an analyst can filter alerts and a market-data client cannot open the page.
 - **M4.4** Audit search page. Status: `todo`. Exit: a 403 or 429 can be found by request id.
 - **M4.5** Swagger UI on the live OpenAPI document. Status: `todo`. Exit: an evaluator can send an authorized request from the browser docs.
 
@@ -146,3 +146,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M3.5. Protected calls append one `audit_events` row with the request id, client id, decision, and status. The bearer token is not stored. A market-data read for `req-audit-m35` was listed by a `security_admin` token and the token text was absent. Checked with `docker compose run --rm --no-deps --entrypoint python api -m pytest secure_api/tests/test_api.py` (10 passed).
 - **2026-10-22** — M4.1. Browser sign-in is Authorization Code with PKCE. The cookie is `HttpOnly`, `Secure`, and `SameSite=Lax`, and it carries a session id. The access token stays in `browser_sessions`. The login and home pages have no `localStorage`. A logout without the CSRF token gets 403. Checked with `pytest secure_api/tests/test_browser_session.py` in the API image (3 passed, the no-database case skipped because `DATABASE_URL` was set).
 - **2026-10-22** — M4.2. `/ui/market` renders the last book and polls `/ui/market-data/{symbol}/book` every 2 seconds. The fragment shows status, age, `received_at`, and FIX session health. `BASELINE` showed a bid at 51.0. Checked with `pytest secure_api/tests/test_market_page.py` in the API image (2 passed). Signing in as `market` through Keycloak also returned that fragment, with no access token in the page.
+- **2026-10-22** — M4.3. `/ui/alerts` lists rule, symbol, severity, observed value, threshold, and time. A symbol filter hides the other row. `market_data_client` receives 403 on the page and on `GET /api/v1/alerts`. Checked with `pytest secure_api/tests/test_alerts_page.py` in the API image (3 passed).

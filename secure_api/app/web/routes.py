@@ -20,6 +20,7 @@ from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.oidc import authorize_url, exchange_code
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
+from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.market_data import (
     SYMBOL_PATTERN,
     feed_health,
@@ -108,8 +109,8 @@ def callback(request: Request, code: str = "", state: str = ""):
     return response
 
 
-def _open_session(request):
-    request.state.action = "market-data:read"
+def _open_session(request, permission="market-data:read"):
+    request.state.action = permission
     request.state.resource = request.url.path
     request.state.client_id = "anonymous"
     request.state.decision = "denied"
@@ -122,7 +123,7 @@ def _open_session(request):
         request.state.reason = "expired"
         return None
     request.state.client_id = claims["client_id"]
-    if not allows(claims.get("roles"), "market-data:read"):
+    if not allows(claims.get("roles"), permission):
         request.state.reason = "missing_scope"
         raise HTTPException(
             status_code=403,
@@ -145,6 +146,7 @@ def home(request: Request):
             "client_id": row["client_id"],
             "roles": ", ".join(row["roles"] or []),
             "csrf_token": row["csrf_token"],
+            "can_read_alerts": allows(row["roles"], "alerts:read"),
         },
     )
 
@@ -212,13 +214,17 @@ def _book_context(symbol):
 
 
 def _market_guard(request):
-    row = _open_session(request)
+    return _guard(request, "market-data:read")
+
+
+def _guard(request, permission):
+    row = _open_session(request, permission)
     if row is None:
         return RedirectResponse("/ui/login", status_code=302)
     if os.environ.get("RATE_LIMIT_REQUIRED", "1") == "0":
         return None
     role = row["roles"][0] if row.get("roles") else ""
-    decision = consume(row["client_id"], role, "market-data:read")
+    decision = consume(row["client_id"], role, permission)
     if decision.allowed:
         return None
     request.state.decision = "denied"
@@ -265,3 +271,40 @@ def market_book(request: Request, symbol: str):
             detail=_error("invalid_symbol", "Invalid symbol", request),
         )
     return templates.TemplateResponse(request, "book.html", _book_context(symbol))
+
+
+def _alert_filters(symbol, severity, rule_name, request):
+    error = filter_error(symbol, severity, rule_name)
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail=_error(error, "Invalid filter", request),
+        )
+    return {
+        "alerts": list_alerts(symbol, severity, rule_name),
+        "symbol": symbol,
+        "severity": severity,
+        "rule_name": rule_name,
+    }
+
+
+@router.get("/ui/alerts", response_class=HTMLResponse)
+def alerts_page(
+    request: Request, symbol: str = "", severity: str = "", rule_name: str = ""
+):
+    blocked = _guard(request, "alerts:read")
+    if blocked is not None:
+        return blocked
+    context = _alert_filters(symbol, severity, rule_name, request)
+    return templates.TemplateResponse(request, "alerts.html", context)
+
+
+@router.get("/ui/alerts/rows", response_class=HTMLResponse)
+def alert_rows(
+    request: Request, symbol: str = "", severity: str = "", rule_name: str = ""
+):
+    blocked = _guard(request, "alerts:read")
+    if blocked is not None:
+        return blocked
+    context = _alert_filters(symbol, severity, rule_name, request)
+    return templates.TemplateResponse(request, "alert_rows.html", context)

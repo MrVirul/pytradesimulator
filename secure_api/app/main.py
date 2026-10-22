@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
+from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 from secure_api.app.web.routes import router
@@ -171,6 +172,25 @@ def market_data_trades(
             detail=error_body("invalid_symbol", "Invalid symbol", request_id_of(request)),
         )
     return {"symbol": symbol, "trades": found}
+
+
+@app.get("/api/v1/alerts")
+def alerts(
+    request: Request,
+    symbol: str = "",
+    severity: str = "",
+    rule_name: str = "",
+    _claims=Depends(require("alerts:read")),
+):
+    error = filter_error(symbol, severity, rule_name)
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail=error_body(error, "Invalid filter", request_id_of(request)),
+        )
+    if not os.environ.get("DATABASE_URL"):
+        return {"alerts": []}
+    return {"alerts": list_alerts(symbol, severity, rule_name)}
 
 
 @app.get("/api/v1/audit-events")

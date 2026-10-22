@@ -1,0 +1,31 @@
+<section id="alert-rows">
+  <table class="alerts">
+    <caption>Alerts</caption>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Rule</th>
+        <th>Symbol</th>
+        <th>Severity</th>
+        <th>Observed</th>
+        <th>Threshold</th>
+        <th>Detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for alert in alerts %}
+      <tr>
+        <td>{{ alert.created_at }}</td>
+        <td>{{ alert.rule_name }}</td>
+        <td>{{ alert.symbol or "—" }}</td>
+        <td>{{ alert.severity }}</td>
+        <td>{{ alert.observed_value }}</td>
+        <td>{{ alert.threshold }}</td>
+        <td>{{ alert.detail }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No alerts match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
