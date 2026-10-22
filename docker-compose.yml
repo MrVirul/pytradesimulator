@@ -115,3 +115,18 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+
+  # Own process. A web worker must not open this FIX session.
+  subscriber:
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/adapter/subscriber.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      SUBSCRIBE_SYMBOLS: MSFT,HYG,BASELINE
+      PYTHONPATH: /app
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    restart: unless-stopped
