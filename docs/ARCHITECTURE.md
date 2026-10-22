@@ -21,10 +21,11 @@ Port 9000 stays a private socket between `server.py` and `market_data.py`. Nothi
 | Process | Image | Role |
 | --- | --- | --- |
 | `exchange` | existing `pytradesim` | Unchanged gateways. Accepts `CLIENT3` and `MDCLIENT3` |
-| `subscriber` | existing `pytradesim` | QuickFIX initiator `MDCLIENT3`. Separate process from the web workers |
-| `api` | new Python image | FastAPI, HTMX, JWT, rate limit, audit. No QuickFIX |
-| `postgres` | PostgreSQL | Snapshots, trades, alerts, audit, rate policies |
-| `keycloak` | Keycloak | Authorization Code + PKCE for the browser, client-credentials tokens for APIs |
+| `subscriber` | `pytradesim-subscriber`, built from `pytradesim` | QuickFIX initiator `MDCLIENT3`. Separate process from the web workers |
+| `scenario-worker` | `pytradesim-subscriber` | Sends a queued scenario name as `CLIENT3`. Separate process from the API |
+| `api` | `pytradesim-api` | FastAPI, HTMX, JWT, rate limit, audit. No QuickFIX |
+| `postgres` | PostgreSQL 16 | Snapshots, trades, alerts, audit, rate policies. Not published on the host |
+| `keycloak` | Keycloak 24.0.5 | Authorization Code + PKCE for the browser, client-credentials tokens for APIs |
 
 Kong, Kafka, Grafana, and a separate surveillance service are out of the first release. Surveillance rules run in the API process, reading the tables the subscriber writes.
 
@@ -115,3 +116,15 @@ The harness request carries only the scenario name: `price_movement`, `spread_wi
 ## Out of scope for the first release
 
 Public order, cancel, or replace APIs. Kafka. gRPC. A learned surveillance model. Kong, unless an evaluation explicitly requires a gateway product. Any claim of production market-abuse compliance. Changes to FIFO matching.
+
+## Definition of done
+
+A new checkout reaches this release by following [Secure layer](../DOCKER.md#secure-layer): `docker compose up -d --build` from the repo root.
+
+- `exchange` is healthy. Ports 5001, 5002, and 9000 are not published on the host.
+- `subscriber` is logged on as `MDCLIENT3` and writes a validated row after the book changes. Its container stays unhealthy, because the image health check looks for the exchange ports. Feed health is `feed_status`, not that status.
+- `scenario-worker` is running. A named scenario from `/ui/scenarios`, or `docker compose --profile scenario run`, sends the fixed `CLIENT3` orders. The API process does not import QuickFIX.
+- `postgres` has the tables in this document and is not published on the host. `migrate` has exited 0.
+- `http://localhost:8080/ui/login` signs in through Keycloak on port 8081. `market` can open the book. `analyst` can open alerts. `admin` can search audit events and start a named scenario.
+- A changed book shows `received_at`, `ingest_sequence`, and a status of `live`, `stale`, or `uninitialized`.
+- The feed limits above still hold, including the one-second flush and the missing snapshot at subscribe time.

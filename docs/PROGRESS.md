@@ -50,7 +50,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M6.1** Automated checks for 401, 403, and 429. Status: `done`. Exit: they pass in the API test run.
 - **M6.2** API latency p50, p95, and p99 under a stated concurrency, separate from feed age. Status: `done`. Exit: numbers and the method are written in this file.
 - **M6.3** Legacy order-book tests still pass unchanged. Status: `done`. Exit: `pytest tests -v` or `docker run --rm pytradesim test` is green.
-- **M6.4** Deployment and limitation notes brought in line with the running Compose file. Status: `todo`. Exit: a new checkout can follow the doc and reach the definition of done in `docs/ARCHITECTURE.md`.
+- **M6.4** Deployment and limitation notes brought in line with the running Compose file. Status: `done`. Exit: a new checkout can follow the doc and reach the definition of done in `docs/ARCHITECTURE.md`.
 
 ## Baseline results
 
@@ -121,6 +121,8 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - Subscribing does not return the current book. The first snapshot waits for the next change.
 - The matching book is process memory. A restart drops it. Stored snapshots are not a recovered book.
 - `MarketDepth(10)` is not applied. Empty sides are omitted from `35=W`.
+- `subscriber` and `scenario-worker` stay unhealthy. They reuse the exchange image health check, which expects listeners on 5001 and 5002. Feed health is `feed_status.logged_on`.
+- Compose publishes the API on `localhost:8080` and Keycloak on `localhost:8081`. It does not publish 5001, 5002, 5432, or 9000. Browser login uses `localhost` because the realm redirect URIs do.
 
 ## API latency
 
@@ -170,3 +172,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-22** — M6.1. The API test run checks 401 for a missing, malformed, expired, wrong-audience, and wrong-issuer token, 403 for a market-data client calling audit and alerts, and 429 with `Retry-After` after the configured limit. Each body returns that call's request id. Checked with `pytest secure_api/tests/test_api.py` in the API image (11 passed, none skipped).
 - **2026-10-22** — M6.2. Timed `GET /api/v1/market-data/BASELINE` from the host at concurrency 8, 160 samples after 8 warmup calls. p50 46.34 ms, p95 57.60 ms, p99 64.49 ms. The timer is the HTTP call, not the book's age. All 160 responses were 200. The temporary rate-limit raise for that client was restored to 1 per 60 seconds.
 - **2026-10-22** — M6.3. `docker run --rm pytradesim test` passed 22 tests in 0.12s on Python 3.9.25 and pytest 5.4.1. The run includes the order-book cases in `tests/test_orderbook.py`. The legacy test files were left as they are.
+- **2026-10-22** — M6.4. `DOCKER.md` now starts the secure layer with `docker compose up -d --build`, and `docs/ARCHITECTURE.md` states the checks that command reaches. The running stack matches that description: exchange and postgres healthy, migrate exited 0, API on port 8080, Keycloak on 8081, FIX and Postgres unpublished. `http://localhost:8080/ui/login` and the `pytradesim` realm both returned 200. The subscriber log says `MDCLIENT3 logged on` while its container stays unhealthy. A fresh checkout was not rebuilt.

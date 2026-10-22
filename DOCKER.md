@@ -6,6 +6,7 @@ through a full trading demonstration.
 - [What runs where](#what-runs-where)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [Secure layer](#secure-layer)
 - [Starting the exchange](#starting-the-exchange)
 - [Running the clients](#running-the-clients)
 - [Demonstration](#demonstration)
@@ -13,6 +14,7 @@ through a full trading demonstration.
 - [Environment variables](#environment-variables)
 - [Useful commands](#useful-commands)
 - [Troubleshooting](#troubleshooting)
+- [Limitations](#limitations)
 - [Notes](#notes)
 
 ---
@@ -81,6 +83,99 @@ The exchange is ready when the log shows:
 [supervisor] exchange gateway accepting FIX orders on 5001, market data gateway on 5002
 [supervisor] ready
 ```
+
+## Secure layer
+
+The same Compose file also starts the read path described in
+`docs/ARCHITECTURE.md`. Services without a profile start together. Profile
+services (`client`, `market-client`, `baseline`, `order`, `scenario`) stay
+off until you ask for them.
+
+From a new checkout, at the repo root:
+
+```bash
+docker compose up -d --build
+docker compose ps -a
+```
+
+`--build` produces `pytradesim`, `pytradesim-subscriber`, and `pytradesim-api`.
+Postgres 16 and Keycloak 24.0.5 are pulled. `migrate` applies every file in
+`secure_api/migrations` in name order, then exits. Those files are safe to
+run again:
+
+```bash
+docker compose run --rm migrate
+```
+
+| Service | On the host | Ready when |
+|---|---|---|
+| `exchange` | 5001 and 5002 are not published | `healthy` |
+| `postgres` | 5432 is not published | `healthy` |
+| `migrate` | nothing | `Exited (0)` |
+| `subscriber` | nothing | the log shows `MDCLIENT3` logged on. The container stays `unhealthy` |
+| `scenario-worker` | nothing | running. It stays `unhealthy` for the same reason |
+| `keycloak` | `localhost:8081` | `http://localhost:8081/realms/pytradesim` returns the realm |
+| `api` | `localhost:8080` | `http://localhost:8080/ui/login` returns the login page |
+
+`subscriber` and `scenario-worker` are built from the exchange image, so they
+keep its health check. That check looks for listeners on 5001 and 5002.
+Those ports belong to `exchange`. Feed health is the market page and
+`feed_status.logged_on`, not the container status.
+
+Open the UI at `http://localhost:8080`. The Keycloak redirect URIs are
+`http://localhost:8080/ui/callback` and
+`http://localhost:8080/docs/oauth2-redirect`, so use `localhost` in the
+browser. The realm file is imported when the Keycloak container is created.
+After a change to `secure_api/keycloak/pytradesim-realm.json`, recreate that
+container so the new file is imported:
+
+```bash
+docker compose up -d --force-recreate keycloak
+```
+
+Demo passwords are the ones in the Compose file and the realm file.
+
+| Who | Password | What they can open |
+|---|---|---|
+| `market` | `market` | `/ui/market` |
+| `analyst` | `analyst` | market data and `/ui/alerts` |
+| `admin` | `admin` | alerts, `/ui/audit`, and `/ui/scenarios` |
+| Keycloak console `admin` | `admin` | `http://localhost:8081` |
+
+The database owner is `pytradesim` / `pytradesim`. The API connects as
+`pytradesim_app` / `pytradesim`. Postgres is reachable from other Compose
+services. The subscriber stores `MSFT`, `HYG`, `BASELINE`, `PRICE`, `SPREAD`,
+and `VOLUME`, and only after the book for that symbol changes:
+
+```bash
+docker compose exec postgres psql -U pytradesim -d pytradesim \
+    -c "SELECT symbol, status, received_at FROM market_snapshots"
+```
+
+One resting bid, or one named scenario:
+
+```bash
+docker compose --profile order run --rm place-order
+docker compose --profile scenario run --rm -e SCENARIO=price_movement run-scenario
+```
+
+`SCENARIO` is `price_movement`, `spread_widening`, or `volume`. An admin can
+start those three, plus `unauthorized_access` and `rate_limit_abuse`, from
+`/ui/scenarios`. The lab post contains the scenario name. The scenario worker
+sends the fixed `CLIENT3` orders for the three FIX names. The two access
+names call the API and do not send an order. `rate_limit_abuse` sets that
+client's market-data policy to one request per 60 seconds.
+
+Swagger UI is `http://localhost:8080/docs`. Authorize there with Keycloak
+PKCE. The API image does not pick up Python edits until it is rebuilt:
+
+```bash
+docker compose build api
+docker compose up -d api
+```
+
+`./secure_api` is mounted into the subscriber, the scenario worker, and the
+profile harnesses, so those processes read the checkout without a rebuild.
 
 ## Starting the exchange
 
@@ -331,36 +426,12 @@ docker inspect --format '{{.State.Health.Status}}' pytradesim-exchange
 docker compose build exchange
 docker compose --profile baseline run --rm fix-baseline
 
-# Create the read-model database and apply every file in secure_api/migrations.
-docker compose up -d postgres
-docker compose run --rm migrate
-
-# Start Keycloak and the read API. Browser login is http://127.0.0.1:8080/ui/login.
-# After sign-in, the market book is http://127.0.0.1:8080/ui/market.
-# Alerts are http://127.0.0.1:8080/ui/alerts for analyst and admin.
-# The API applies price_movement, spread_widening, and volume to each new book.
-# The scenario lab is http://127.0.0.1:8080/ui/scenarios for admin.
-# A run posts only the scenario name. The scenario-worker sends the fixed CLIENT3 orders.
-# unauthorized_access and rate_limit_abuse call the API and do not send an order.
-# Each denied call is stored on an audit row with the request id shown in the lab.
-# Audit search is http://127.0.0.1:8080/ui/audit for admin.
-# Swagger UI is http://127.0.0.1:8080/docs and uses the live OpenAPI document.
-# Authorize there with Keycloak (PKCE). The redirect is /docs/oauth2-redirect.
-# Demo users are market/market, analyst/analyst, and admin/admin.
-# The session cookie is HttpOnly. The access token is not sent to the page.
-docker compose up -d keycloak api
+# The read API, Keycloak, subscriber, and scenario worker start with the
+# exchange. See Secure layer above for the logins and the ports.
+docker compose up -d --build
 
 # Follow the FIX subscriber. It is a separate process from any web worker.
-docker compose up -d subscriber
 docker compose logs -f subscriber
-
-# Place one resting bid and read it from the read model.
-docker compose --profile order run --rm place-order
-
-# Run one named scenario as CLIENT3. The only input is SCENARIO.
-# price_movement, spread_widening, or volume. There is no price or quantity field.
-docker compose --profile scenario run --rm -e SCENARIO=price_movement run-scenario
-docker compose exec postgres psql -U pytradesim_app -d pytradesim -c "SELECT symbol, status, bids FROM market_snapshots"
 
 # Run the test suite
 docker run --rm pytradesim:latest test
@@ -405,6 +476,29 @@ order first, see the [demonstration](#demonstration).
 The `quickfix` patch was not applied. The build applies
 `docker/patches/quickfix-1.15.1-portable-atomic-count.patch`, see
 [Notes](#notes).
+
+## Limitations
+
+These match the running Compose file and the gateway behavior the subscriber
+cannot change.
+
+- The exchange flushes a symbol about once a second, and only after the book
+  changes. A subscription does not return the current book. `MSFT` and `HYG`
+  stay absent from `market_snapshots` until something changes them.
+- One flush collapses identical `(price, quantity)` trades. The volume
+  scenario waits between fills so each distinct trade is stored.
+- The matching book is process memory. Restarting `exchange` drops it.
+  Stored rows are marked `stale` until a new snapshot. Postgres does not
+  restore the book.
+- A depth of 10 is ignored. The gateway sends the full aggregated book and
+  omits an empty side.
+- `subscriber` and `scenario-worker` stay `unhealthy`. Their image health
+  check expects the exchange ports.
+- Compose does not publish 5001, 5002, 5432, or 9000. The `docker run -p`
+  example further up does publish 5001 and 5002, for a client on the host.
+- Port 9000 stays inside the exchange container. Nothing else connects to it.
+- The passwords in this guide are the demo values in `docker-compose.yml`
+  and `secure_api/keycloak/pytradesim-realm.json`.
 
 ## Notes
 

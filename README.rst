@@ -93,6 +93,11 @@ Compose brings the exchange up and runs the clients on demand.
     $ docker compose --profile client run --rm client
     $ docker compose --profile market-client run --rm market-client
 
+The same file also starts the read API, Postgres, Keycloak, the market-data
+subscriber, and the scenario worker. Those steps, the demo logins, and the
+feed limits are in the secure-layer section of ``DOCKER.md``. FIX ports stay
+on the Compose network.
+
 
 Example
 =======
