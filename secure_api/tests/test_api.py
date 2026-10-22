@@ -173,3 +173,35 @@ def test_rate_limit_returns_429(keys, monkeypatch):
     assert denied.json()["error"]["code"] == "rate_limit_exceeded"
     assert int(denied.headers["retry-after"]) >= 1
 
+
+def test_audit_row_correlates_and_omits_the_token(client, keys):
+    if not os.environ.get("DATABASE_URL"):
+        pytest.skip("DATABASE_URL is not set")
+    private, _public = keys
+    token = _token(private, ["market_data_client"])
+    request_id = "req-audit-m35"
+    response = client.get(
+        "/api/v1/market-data/BASELINE",
+        headers={
+            "Authorization": "Bearer {0}".format(token),
+            "X-Request-ID": request_id,
+        },
+    )
+    assert response.status_code == 200
+    admin = _token(
+        private, ["security_admin"], sub="security-admin", client_id="security-admin"
+    )
+    listed = client.get(
+        "/api/v1/audit-events",
+        params={"request_id": request_id},
+        headers={"Authorization": "Bearer {0}".format(admin)},
+    )
+    assert listed.status_code == 200
+    matches = [
+        event
+        for event in listed.json()["events"]
+        if event["request_id"] == request_id and event["decision"] == "allowed"
+    ]
+    assert matches
+    assert token not in listed.text
+

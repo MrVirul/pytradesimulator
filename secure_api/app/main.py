@@ -1,6 +1,7 @@
 """Read API. Authorization runs before any database call."""
 
 import os
+import time
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -10,6 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
+from secure_api.app.services.audit import list_events, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 
 app = FastAPI(title="pytradesim secure API", version="1")
@@ -94,6 +96,39 @@ def require(permission):
     return dependency
 
 
+@app.middleware("http")
+async def audit_request(request: Request, call_next):
+    request_id_of(request)
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        response = JSONResponse(
+            status_code=500,
+            content=error_body(
+                "internal_error", "Internal error", request.state.request_id
+            ),
+        )
+    response.headers["X-Request-ID"] = request.state.request_id
+    if getattr(request.state, "action", None) and os.environ.get("DATABASE_URL"):
+        try:
+            write_event(
+                {
+                    "request_id": request.state.request_id,
+                    "client_id": getattr(request.state, "client_id", "anonymous"),
+                    "action": request.state.action,
+                    "resource": getattr(request.state, "resource", request.url.path),
+                    "decision": getattr(request.state, "decision", "denied"),
+                    "reason": getattr(request.state, "reason", ""),
+                    "status_code": response.status_code,
+                    "latency_ms": int((time.perf_counter() - started) * 1000),
+                }
+            )
+        except Exception:
+            pass
+    return response
+
+
 @app.get("/api/v1/health")
 def health():
     return {"status": "ok"}
@@ -107,9 +142,7 @@ def market_data(_claims=Depends(require("market-data:read"))):
 
 
 @app.get("/api/v1/market-data/{symbol}")
-def market_data_symbol(
-    symbol: str, request: Request, _claims=Depends(require("market-data:read"))
-):
+def market_data_symbol(symbol: str, request: Request, _claims=Depends(require("market-data:read"))):
     found = get_symbol(symbol)
     if found is None:
         raise HTTPException(
@@ -121,22 +154,21 @@ def market_data_symbol(
 
 @app.get("/api/v1/market-data/{symbol}/trades")
 def market_data_trades(
-    symbol: str,
-    request: Request,
-    limit: int = 20,
-    _claims=Depends(require("market-data:read")),
+    symbol: str, request: Request, limit: int = 20, _claims=Depends(require("market-data:read"))
 ):
     found = recent_trades(symbol, limit)
     if found is None:
         raise HTTPException(
             status_code=400,
-            detail=error_body(
-                "invalid_symbol", "Invalid symbol", request_id_of(request)
-            ),
+            detail=error_body("invalid_symbol", "Invalid symbol", request_id_of(request)),
         )
     return {"symbol": symbol, "trades": found}
 
 
 @app.get("/api/v1/audit-events")
-def audit_events(_claims=Depends(require("audit:read"))):
-    return {"events": []}
+def audit_events(
+    request: Request,
+    request_id: str = "",
+    _claims=Depends(require("audit:read")),
+):
+    return {"events": list_events(request_id or None)}

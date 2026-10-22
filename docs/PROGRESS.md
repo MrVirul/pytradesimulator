@@ -28,7 +28,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M3.2** Shared policy module. Status: `done`. Exit: a market-data token gets 403 on audit.
 - **M3.3** Postgres rate limits, fail closed. Status: `done`. Exit: a burst over the configured limit gets 429 and `Retry-After`.
 - **M3.4** `GET /api/v1/market-data` and the symbol and trades routes. Status: `done`. Exit: a scripted FIX order is visible through REST, with sequence and `received_at`.
-- **M3.5** Audit middleware. Status: `todo`. Exit: each protected call has one row and the request id, and the token is not in the row.
+- **M3.5** Audit middleware. Status: `done`. Exit: each protected call has one row and the request id, and the token is not in the row.
 
 ## Milestone 4 — HTMX dashboard and login
 
@@ -143,3 +143,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M3.1 and M3.2. RS256 tokens are checked for signature, issuer, audience, and expiry. A `market_data_client` token can call market data and receives 403 on audit. Checked with `pytest secure_api/tests/test_api.py` (7 passed).
 - **2026-10-22** — M3.3. Each protected call consumes a Postgres counter for the token's client id. The limiter denies the call when the store is down. A subject allowed 2 market-data requests in the window received 429 and `Retry-After` on the third. Checked with pytest in the API image on the Compose network after `002_rate_limits.sql`. Host `pytest secure_api/tests/test_api.py` skips that case when `DATABASE_URL` is unset and still passes the token checks.
 - **2026-10-22** — M3.4. `GET /api/v1/market-data`, `GET /api/v1/market-data/{symbol}`, and the trades route read `market_snapshots` and `trade_observations`. `BASELINE` from the scripted `CLIENT3` bid came back `live` with `ingest_sequence` 6 and `received_at`. Checked with pytest in the API image on the Compose network (the book case passed).
+- **2026-10-22** — M3.5. Protected calls append one `audit_events` row with the request id, client id, decision, and status. The bearer token is not stored. A market-data read for `req-audit-m35` was listed by a `security_admin` token and the token text was absent. Checked with `docker compose run --rm --no-deps --entrypoint python api -m pytest secure_api/tests/test_api.py` (10 passed).
