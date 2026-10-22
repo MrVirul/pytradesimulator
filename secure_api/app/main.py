@@ -13,7 +13,7 @@ from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
-from secure_api.app.services.audit import list_events, write_event
+from secure_api.app.services.audit import list_events, search_error, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 from secure_api.app.web.routes import router
 
@@ -197,6 +197,32 @@ def alerts(
 def audit_events(
     request: Request,
     request_id: str = "",
+    client_id: str = "",
+    action: str = "",
+    decision: str = "",
+    status_code: str = "",
+    recorded_from: str = "",
+    recorded_to: str = "",
     _claims=Depends(require("audit:read")),
 ):
-    return {"events": list_events(request_id or None)}
+    error = search_error(
+        request_id, client_id, action, decision, status_code, recorded_from, recorded_to
+    )
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail=error_body(error, "Invalid filter", request_id_of(request)),
+        )
+    if not os.environ.get("DATABASE_URL"):
+        return {"events": []}
+    return {
+        "events": list_events(
+            request_id or None,
+            client_id,
+            action,
+            decision,
+            status_code or None,
+            recorded_from,
+            recorded_to,
+        )
+    }

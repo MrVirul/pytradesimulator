@@ -21,6 +21,7 @@ from secure_api.app.auth.oidc import authorize_url, exchange_code
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
+from secure_api.app.services.audit import list_events, search_error
 from secure_api.app.services.market_data import (
     SYMBOL_PATTERN,
     feed_health,
@@ -147,6 +148,7 @@ def home(request: Request):
             "roles": ", ".join(row["roles"] or []),
             "csrf_token": row["csrf_token"],
             "can_read_alerts": allows(row["roles"], "alerts:read"),
+            "can_read_audit": allows(row["roles"], "audit:read"),
         },
     )
 
@@ -308,3 +310,72 @@ def alert_rows(
         return blocked
     context = _alert_filters(symbol, severity, rule_name, request)
     return templates.TemplateResponse(request, "alert_rows.html", context)
+
+
+def _audit_context(request, request_id, client_id, action, decision, status_code, recorded_from, recorded_to):
+    error = search_error(
+        request_id, client_id, action, decision, status_code, recorded_from, recorded_to
+    )
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail=_error(error, "Invalid filter", request),
+        )
+    return {
+        "events": list_events(
+            request_id or None,
+            client_id,
+            action,
+            decision,
+            status_code or None,
+            recorded_from,
+            recorded_to,
+        ),
+        "request_id": request_id,
+        "client_id": client_id,
+        "action": action,
+        "decision": decision,
+        "status_code": status_code,
+        "recorded_from": recorded_from,
+        "recorded_to": recorded_to,
+    }
+
+
+@router.get("/ui/audit", response_class=HTMLResponse)
+def audit_page(
+    request: Request,
+    request_id: str = "",
+    client_id: str = "",
+    action: str = "",
+    decision: str = "",
+    status_code: str = "",
+    recorded_from: str = "",
+    recorded_to: str = "",
+):
+    blocked = _guard(request, "audit:read")
+    if blocked is not None:
+        return blocked
+    context = _audit_context(
+        request, request_id, client_id, action, decision, status_code, recorded_from, recorded_to
+    )
+    return templates.TemplateResponse(request, "audit.html", context)
+
+
+@router.get("/ui/audit/rows", response_class=HTMLResponse)
+def audit_rows(
+    request: Request,
+    request_id: str = "",
+    client_id: str = "",
+    action: str = "",
+    decision: str = "",
+    status_code: str = "",
+    recorded_from: str = "",
+    recorded_to: str = "",
+):
+    blocked = _guard(request, "audit:read")
+    if blocked is not None:
+        return blocked
+    context = _audit_context(
+        request, request_id, client_id, action, decision, status_code, recorded_from, recorded_to
+    )
+    return templates.TemplateResponse(request, "audit_rows.html", context)

@@ -1,0 +1,31 @@
+<section id="audit-rows">
+  <table class="alerts">
+    <caption>Audit events</caption>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Request id</th>
+        <th>Client</th>
+        <th>Action</th>
+        <th>Decision</th>
+        <th>Status</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for event in events %}
+      <tr>
+        <td>{{ event.recorded_at }}</td>
+        <td>{{ event.request_id }}</td>
+        <td>{{ event.client_id }}</td>
+        <td>{{ event.action }}</td>
+        <td>{{ event.decision }}</td>
+        <td>{{ event.status_code }}</td>
+        <td>{{ event.reason }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No audit events match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>

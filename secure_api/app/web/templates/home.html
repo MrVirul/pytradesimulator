@@ -10,6 +10,7 @@
   <p>Roles {{ roles }}</p>
   <p><a href="/ui/market">Market</a></p>
   {% if can_read_alerts %}<p><a href="/ui/alerts">Alerts</a></p>{% endif %}
+  {% if can_read_audit %}<p><a href="/ui/audit">Audit</a></p>{% endif %}
   <form method="post" action="/ui/logout">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit">Sign out</button>
