@@ -47,6 +47,13 @@ def client(keys, monkeypatch_module):
     return TestClient(app)
 
 
+def _assert_status(response, status, code, request_id):
+    assert response.status_code == status
+    body = response.json()["error"]
+    assert body["code"] == code
+    assert body["request_id"] == request_id
+
+
 def _token(private_pem, roles, **overrides):
     now = int(time.time())
     claims = {
@@ -76,28 +83,50 @@ def test_health_is_public(client):
     ],
 )
 def test_missing_and_malformed_tokens_are_rejected(client, header, reason_status):
-    headers = {} if header is None else {"Authorization": header}
+    headers = {"X-Request-ID": "req-m61-missing"}
+    if header is not None:
+        headers["Authorization"] = header
     response = client.get("/api/v1/market-data", headers=headers)
-    assert response.status_code == reason_status
-    assert response.json()["error"]["code"] == "unauthorized"
+    _assert_status(response, reason_status, "unauthorized", "req-m61-missing")
 
 
 def test_expired_token_is_rejected(client, keys):
     private, _public = keys
     token = _token(private, ["market_data_client"], exp=int(time.time()) - 10)
     response = client.get(
-        "/api/v1/market-data", headers={"Authorization": "Bearer {0}".format(token)}
+        "/api/v1/market-data",
+        headers={
+            "Authorization": "Bearer {0}".format(token),
+            "X-Request-ID": "req-m61-expired",
+        },
     )
-    assert response.status_code == 401
+    _assert_status(response, 401, "unauthorized", "req-m61-expired")
 
 
 def test_wrong_audience_is_rejected(client, keys):
     private, _public = keys
     token = _token(private, ["market_data_client"], aud="someone-else")
     response = client.get(
-        "/api/v1/market-data", headers={"Authorization": "Bearer {0}".format(token)}
+        "/api/v1/market-data",
+        headers={
+            "Authorization": "Bearer {0}".format(token),
+            "X-Request-ID": "req-m61-audience",
+        },
     )
-    assert response.status_code == 401
+    _assert_status(response, 401, "unauthorized", "req-m61-audience")
+
+
+def test_wrong_issuer_is_rejected(client, keys):
+    private, _public = keys
+    token = _token(private, ["market_data_client"], iss="https://other.example/realms/pytradesim")
+    response = client.get(
+        "/api/v1/market-data",
+        headers={
+            "Authorization": "Bearer {0}".format(token),
+            "X-Request-ID": "req-m61-issuer",
+        },
+    )
+    _assert_status(response, 401, "unauthorized", "req-m61-issuer")
 
 
 def test_valid_market_data_token_is_accepted(client, keys):
@@ -112,11 +141,20 @@ def test_valid_market_data_token_is_accepted(client, keys):
 def test_market_data_token_cannot_read_audit(client, keys):
     private, _public = keys
     token = _token(private, ["market_data_client"])
-    response = client.get(
-        "/api/v1/audit-events", headers={"Authorization": "Bearer {0}".format(token)}
+    headers = {
+        "Authorization": "Bearer {0}".format(token),
+        "X-Request-ID": "req-m61-forbidden",
+    }
+    audit = client.get("/api/v1/audit-events", headers=headers)
+    _assert_status(audit, 403, "forbidden", "req-m61-forbidden")
+    alerts = client.get(
+        "/api/v1/alerts",
+        headers={
+            "Authorization": "Bearer {0}".format(token),
+            "X-Request-ID": "req-m61-alerts",
+        },
     )
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "forbidden"
+    _assert_status(alerts, 403, "forbidden", "req-m61-alerts")
 
 
 def test_live_book_is_visible(client, keys):
@@ -168,9 +206,11 @@ def test_rate_limit_returns_429(keys, monkeypatch):
     local = TestClient(app)
     assert local.get("/api/v1/market-data", headers=headers).status_code == 200
     assert local.get("/api/v1/market-data", headers=headers).status_code == 200
-    denied = local.get("/api/v1/market-data", headers=headers)
-    assert denied.status_code == 429
-    assert denied.json()["error"]["code"] == "rate_limit_exceeded"
+    denied = local.get(
+        "/api/v1/market-data",
+        headers=dict(headers, **{"X-Request-ID": "req-m61-limited"}),
+    )
+    _assert_status(denied, 429, "rate_limit_exceeded", "req-m61-limited")
     assert int(denied.headers["retry-after"]) >= 1
 
 
