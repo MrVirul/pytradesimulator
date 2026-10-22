@@ -339,6 +339,10 @@ docker compose run --rm migrate
 docker compose up -d subscriber
 docker compose logs -f subscriber
 
+# Place one resting bid and read it from the read model.
+docker compose --profile order run --rm place-order
+docker compose exec postgres psql -U pytradesim_app -d pytradesim -c "SELECT symbol, status, bids FROM market_snapshots"
+
 # Run the test suite
 docker run --rm pytradesim:latest test
 

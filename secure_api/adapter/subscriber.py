@@ -23,6 +23,7 @@ import quickfix as fix
 import quickfix42 as fix42
 
 from secure_api.adapter.normalizer import RejectedSnapshot, normalize
+from secure_api.adapter.persistence import Store, database_url
 
 
 CONFIG = Path(__file__).resolve().parent / "configs" / "mdclient3.cfg"
@@ -141,9 +142,10 @@ def market_data_request(symbols):
 
 
 class Subscriber(fix.Application):
-    def __init__(self, symbols):
+    def __init__(self, symbols, store):
         super(Subscriber, self).__init__()
         self.symbols = symbols
+        self.store = store
         self.logged_on = threading.Event()
         self.lock = threading.Lock()
         self.subscribed = False
@@ -190,9 +192,11 @@ class Subscriber(fix.Application):
         self.accept(book)
 
     def accept(self, book):
+        sequence = self.store.record(book)
         log(
-            "snapshot {0} bids={1} asks={2} trades={3}".format(
+            "stored {0} sequence={1} bids={2} asks={3} trades={4}".format(
                 book["symbol"],
+                sequence,
                 len(book["bids"]),
                 len(book["asks"]),
                 len(book["trades"]),
@@ -221,7 +225,8 @@ def main():
     symbols = load_symbols()
     host = os.environ.get("EXCHANGE_HOST", "127.0.0.1")
     config = render_config(host, dictionary_path())
-    application = Subscriber(symbols)
+    store = Store(database_url())
+    application = Subscriber(symbols, store)
     settings = fix.SessionSettings(str(config))
     initiator = fix.SocketInitiator(
         application,
@@ -238,6 +243,7 @@ def main():
         log("stopping")
     finally:
         initiator.stop()
+        store.close()
     return 0
 
 

@@ -19,7 +19,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M2.1** Normalize and validate `35=W`. Status: `done`. Exit: invalid prices, quantities, symbols, and entry types are rejected.
 - **M2.2** Migrations for the read-model tables. Status: `done`. Exit: a clean database reaches the schema in `docs/ARCHITECTURE.md`.
 - **M2.3** Subscriber process on the legacy image. Status: `done`. Exit: `MDCLIENT3` subscribes from `onLogon`, reconnects, and does not run inside a web worker.
-- **M2.4** Persist latest snapshot, observations, and trades. Status: `todo`. Exit: a resting order shows up as a row without a second pickle consumer.
+- **M2.4** Persist latest snapshot, observations, and trades. Status: `done`. Exit: a resting order shows up as a row without a second pickle consumer.
 - **M2.5** Feed health and stale status. Status: `todo`. Exit: an exchange restart leaves old rows `stale` until a new snapshot.
 
 ## Milestone 3 — FastAPI security and REST
@@ -138,3 +138,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M2.1. `secure_api/adapter/normalizer.py` rejects bad symbols, prices, quantities, and entry types, and keeps identical trade prints. Checked with `pytest secure_api/tests/test_normalizer.py` (14 passed) and `pytest tests` (22 passed).
 - **2026-10-22** — M2.2. `secure_api/migrations/001_read_model.sql` creates the read model, audit, rate policies, and `feed_status`. The app role can insert audit rows and cannot update or delete them. Checked with `docker compose run --rm migrate` against a clean Postgres.
 - **2026-10-22** — M2.3. `subscriber` is its own Compose process. It logged on as `MDCLIENT3`, subscribed to `MSFT,HYG,BASELINE` from `onLogon`, and subscribed again after `docker compose restart exchange`.
+- **2026-10-22** — M2.4. A `CLIENT3` bid of 40 `BASELINE` at 51 was stored as `market_snapshots` sequence 1, status `live`, bids `[{price: 51.0, quantity: 40.0}]`. Checked with `docker compose --profile order run --rm place-order` and a SQL select. No second consumer on port 9000.

@@ -118,15 +118,39 @@ services:
 
   # Own process. A web worker must not open this FIX session.
   subscriber:
-    image: pytradesim:latest
+    build:
+      context: .
+      dockerfile: secure_api/Dockerfile.subscriber
+    image: pytradesim-subscriber:latest
     command: ["python", "/app/secure_api/adapter/subscriber.py"]
     environment:
       EXCHANGE_HOST: exchange
       SUBSCRIBE_SYMBOLS: MSFT,HYG,BASELINE
       PYTHONPATH: /app
+      DATABASE_URL: postgresql://pytradesim_app:pytradesim@postgres:5432/pytradesim
     volumes:
       - ./secure_api:/app/secure_api:ro
     depends_on:
       exchange:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+  # Places one resting bid. Does not open the market-data session.
+  #   docker compose --profile order run --rm place-order
+  place-order:
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/harness/send_resting_bid.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      PYTHONPATH: /app
+      ORDER_SYMBOL: BASELINE
+      ORDER_PRICE: "51"
+      ORDER_QTY: "40"
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    profiles: ["order"]

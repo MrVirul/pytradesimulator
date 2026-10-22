@@ -1,0 +1,6 @@
+# Subscriber image. Extends the legacy image so QuickFIX is not compiled again.
+FROM pytradesim:latest
+
+USER root
+RUN /venv/bin/pip install --no-cache-dir "psycopg[binary]==3.2.9"
+USER pytradesim
