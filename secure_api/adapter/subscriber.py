@@ -158,6 +158,7 @@ class Subscriber(fix.Application):
         self.session_id = sessionID
         self.logged_on.set()
         log("MDCLIENT3 logged on")
+        self.store.mark_logged_on()
         thread = threading.Thread(target=self._subscribe_after_logon, args=(sessionID,))
         thread.daemon = True
         thread.start()
@@ -166,7 +167,8 @@ class Subscriber(fix.Application):
         with self.lock:
             self.subscribed = False
         self.logged_on.clear()
-        log("MDCLIENT3 logged out; will subscribe again on the next logon")
+        self.store.mark_stale()
+        log("MDCLIENT3 logged out; stored books marked stale")
 
     def toAdmin(self, message, sessionID):
         return
@@ -226,6 +228,7 @@ def main():
     host = os.environ.get("EXCHANGE_HOST", "127.0.0.1")
     config = render_config(host, dictionary_path())
     store = Store(database_url())
+    store.mark_stale()
     application = Subscriber(symbols, store)
     settings = fix.SessionSettings(str(config))
     initiator = fix.SocketInitiator(

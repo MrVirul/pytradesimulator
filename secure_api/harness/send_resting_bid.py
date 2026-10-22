@@ -46,7 +46,7 @@ def main():
             print("order: CLIENT3 did not log on", flush=True)
             return 1
         message = new_limit(
-            "CLIENT3{0}BID".format(symbol),
+            "CLIENT3{0}{1}".format(symbol, int(time.time() * 1000)),
             symbol,
             quantity,
             price,

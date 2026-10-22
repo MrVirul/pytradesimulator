@@ -6,6 +6,7 @@ ingestion id, not an exchange trade id.
 """
 
 import os
+import threading
 
 import psycopg
 from psycopg.types.json import Json
@@ -20,13 +21,53 @@ def database_url():
 
 class Store(object):
     def __init__(self, url):
+        self.url = url
         self.connection = psycopg.connect(url)
+        self.lock = threading.Lock()
 
     def close(self):
         self.connection.close()
 
+    def _ensure(self):
+        if self.connection.closed:
+            self.connection = psycopg.connect(self.url)
+
     def record(self, book):
-        with self.connection:
+        with self.lock:
+            return self._record(book)
+
+    def mark_stale(self):
+        """Old books are not the live exchange book after a disconnect or restart."""
+        with self.lock:
+            self._ensure()
+            with self.connection.transaction():
+                with self.connection.cursor() as cursor:
+                    cursor.execute("UPDATE market_snapshots SET status = 'stale'")
+                    cursor.execute(
+                        """
+                        UPDATE feed_status
+                        SET logged_on = FALSE, updated_at = now()
+                        WHERE id = 1
+                        """
+                    )
+
+    def mark_logged_on(self):
+        """Logon is feed health. It does not make a stored book live."""
+        with self.lock:
+            self._ensure()
+            with self.connection.transaction():
+                with self.connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE feed_status
+                        SET logged_on = TRUE, updated_at = now()
+                        WHERE id = 1
+                        """
+                    )
+
+    def _record(self, book):
+        self._ensure()
+        with self.connection.transaction():
             with self.connection.cursor() as cursor:
                 cursor.execute("SELECT nextval('ingest_sequence')")
                 sequence = cursor.fetchone()[0]
