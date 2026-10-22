@@ -159,6 +159,22 @@ services:
         condition: service_healthy
     profiles: ["order"]
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "8081"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./secure_api/keycloak:/opt/keycloak/data/import:ro
+
   api:
     build:
       context: ./secure_api
@@ -169,6 +185,16 @@ services:
     environment:
       DATABASE_URL: postgresql://pytradesim_app:pytradesim@postgres:5432/pytradesim
       RATE_LIMIT_REQUIRED: "1"
+      KEYCLOAK_PUBLIC_URL: http://localhost:8081
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: pytradesim
+      KEYCLOAK_CLIENT_ID: pytradesim-ui
+      KEYCLOAK_REDIRECT_URI: http://localhost:8080/ui/callback
+      JWT_ISSUER: http://localhost:8081/realms/pytradesim
+      JWT_AUDIENCE: pytradesim-api
+      JWT_JWKS_URL: http://keycloak:8080/realms/pytradesim/protocol/openid-connect/certs
     depends_on:
       migrate:
         condition: service_completed_successfully
+      keycloak:
+        condition: service_started

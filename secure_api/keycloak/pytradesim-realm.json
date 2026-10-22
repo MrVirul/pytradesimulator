@@ -1,0 +1,62 @@
+{
+  "realm": "pytradesim",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "roles": {
+    "realm": [
+      {"name": "market_data_client"},
+      {"name": "surveillance_analyst"},
+      {"name": "security_admin"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "pytradesim-ui",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": ["http://localhost:8080/ui/callback"],
+      "webOrigins": ["http://localhost:8080"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "pytradesim-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "market",
+      "enabled": true,
+      "credentials": [{"type": "password", "value": "market", "temporary": false}],
+      "realmRoles": ["market_data_client"]
+    },
+    {
+      "username": "analyst",
+      "enabled": true,
+      "credentials": [{"type": "password", "value": "analyst", "temporary": false}],
+      "realmRoles": ["surveillance_analyst"]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "credentials": [{"type": "password", "value": "admin", "temporary": false}],
+      "realmRoles": ["security_admin"]
+    }
+  ]
+}

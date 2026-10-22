@@ -335,9 +335,10 @@ docker compose --profile baseline run --rm fix-baseline
 docker compose up -d postgres
 docker compose run --rm migrate
 
-# Start the read API on http://127.0.0.1:8080. It expects a JWT public key
-# in JWT_PUBLIC_KEY. The demo database URL is already set on the service.
-docker compose up -d api
+# Start Keycloak and the read API. Browser login is http://127.0.0.1:8080/ui/login.
+# Demo users are market/market, analyst/analyst, and admin/admin.
+# The session cookie is HttpOnly. The access token is not sent to the page.
+docker compose up -d keycloak api
 
 # Follow the FIX subscriber. It is a separate process from any web worker.
 docker compose up -d subscriber

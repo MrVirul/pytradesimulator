@@ -13,8 +13,10 @@ from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.audit import list_events, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
+from secure_api.app.web.routes import router
 
 app = FastAPI(title="pytradesim secure API", version="1")
+app.include_router(router)
 _bearer = HTTPBearer(auto_error=False)
 
 

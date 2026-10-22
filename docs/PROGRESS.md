@@ -32,7 +32,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 
 ## Milestone 4 — HTMX dashboard and login
 
-- **M4.1** Keycloak Authorization Code with PKCE, cookie session, CSRF on posts. Status: `todo`. Exit: the browser has no access token in local storage.
+- **M4.1** Keycloak Authorization Code with PKCE, cookie session, CSRF on posts. Status: `done`. Exit: the browser has no access token in local storage.
 - **M4.2** Market page and book fragment. Status: `todo`. Exit: the fragment shows the last book, its age, and its status.
 - **M4.3** Alerts page. Status: `todo`. Exit: an analyst can filter alerts and a market-data client cannot open the page.
 - **M4.4** Audit search page. Status: `todo`. Exit: a 403 or 429 can be found by request id.
@@ -144,3 +144,4 @@ baseline: PASS BASELINE bid 675.0 x 189.0 crossed
 - **2026-10-22** — M3.3. Each protected call consumes a Postgres counter for the token's client id. The limiter denies the call when the store is down. A subject allowed 2 market-data requests in the window received 429 and `Retry-After` on the third. Checked with pytest in the API image on the Compose network after `002_rate_limits.sql`. Host `pytest secure_api/tests/test_api.py` skips that case when `DATABASE_URL` is unset and still passes the token checks.
 - **2026-10-22** — M3.4. `GET /api/v1/market-data`, `GET /api/v1/market-data/{symbol}`, and the trades route read `market_snapshots` and `trade_observations`. `BASELINE` from the scripted `CLIENT3` bid came back `live` with `ingest_sequence` 6 and `received_at`. Checked with pytest in the API image on the Compose network (the book case passed).
 - **2026-10-22** — M3.5. Protected calls append one `audit_events` row with the request id, client id, decision, and status. The bearer token is not stored. A market-data read for `req-audit-m35` was listed by a `security_admin` token and the token text was absent. Checked with `docker compose run --rm --no-deps --entrypoint python api -m pytest secure_api/tests/test_api.py` (10 passed).
+- **2026-10-22** — M4.1. Browser sign-in is Authorization Code with PKCE. The cookie is `HttpOnly`, `Secure`, and `SameSite=Lax`, and it carries a session id. The access token stays in `browser_sessions`. The login and home pages have no `localStorage`. A logout without the CSRF token gets 403. Checked with `pytest secure_api/tests/test_browser_session.py` in the API image (3 passed, the no-database case skipped because `DATABASE_URL` was set).
