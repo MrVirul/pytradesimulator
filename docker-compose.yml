@@ -141,6 +141,23 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # Sends queued scenario names as CLIENT3. The API does not open this session.
+  scenario-worker:
+    image: pytradesim-subscriber:latest
+    command: ["python", "/app/secure_api/harness/worker.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql://pytradesim_app:pytradesim@postgres:5432/pytradesim
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   # Places one resting bid. Does not open the market-data session.
   #   docker compose --profile order run --rm place-order
   place-order:

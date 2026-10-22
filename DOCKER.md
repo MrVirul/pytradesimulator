@@ -339,6 +339,8 @@ docker compose run --rm migrate
 # After sign-in, the market book is http://127.0.0.1:8080/ui/market.
 # Alerts are http://127.0.0.1:8080/ui/alerts for analyst and admin.
 # The API applies price_movement, spread_widening, and volume to each new book.
+# The scenario lab is http://127.0.0.1:8080/ui/scenarios for admin.
+# A run posts only the scenario name. The scenario-worker sends the fixed CLIENT3 orders.
 # Audit search is http://127.0.0.1:8080/ui/audit for admin.
 # Swagger UI is http://127.0.0.1:8080/docs and uses the live OpenAPI document.
 # Authorize there with Keycloak (PKCE). The redirect is /docs/oauth2-redirect.

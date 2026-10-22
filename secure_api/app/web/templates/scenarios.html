@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Scenarios</title>
+  <meta name="htmx-config" content='{"historyEnabled": false, "historyCacheSize": 0}'>
+  <link rel="stylesheet" href="/static/market.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <h1>Scenario lab</h1>
+    <nav>
+      <a href="/ui/alerts">Alerts</a>
+      <a href="/ui">Account</a>
+    </nav>
+  </header>
+  <p class="facts">Rate limit {{ policy.requests_allowed }} requests per {{ policy.window_seconds }} seconds.</p>
+  {% for scenario in scenarios %}
+  <section class="book">
+    <h2>{{ scenario.name }}</h2>
+    {% if scenario.runnable %}
+    <form method="post" action="/ui/scenarios">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="scenario" value="{{ scenario.name }}">
+      <button type="submit">Run</button>
+    </form>
+    {% else %}
+    <p>Listed for the lab. It does not send an order.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+  {% if run %}{% include "scenario_run.html" %}{% endif %}
+</body>
+</html>

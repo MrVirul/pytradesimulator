@@ -17,6 +17,8 @@ from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, search_error, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
+from secure_api.app.services.scenarios import enqueue
+from secure_api.harness.scenarios import ScenarioError, orders_for, parse_request
 from secure_api.app.services.surveillance import watch_books
 from secure_api.app.web.routes import router
 
@@ -247,6 +249,32 @@ def audit_events(
             recorded_to,
         )
     }
+
+
+@app.post("/api/v1/scenarios")
+async def start_scenario(request: Request, claims=Depends(require("scenarios:run"))):
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = None
+    try:
+        name = parse_request(payload)
+    except ScenarioError as error:
+        request.state.decision = "denied"
+        request.state.reason = error.reason
+        raise HTTPException(
+            status_code=400,
+            detail=error_body(error.reason, "Invalid scenario", request_id_of(request)),
+        )
+    if not os.environ.get("DATABASE_URL"):
+        raise HTTPException(
+            status_code=503,
+            detail=error_body("unavailable", "Scenario runs are unavailable", request_id_of(request)),
+        )
+    symbol, _orders = orders_for(name)
+    run = enqueue(name, claims["client_id"])
+    run["symbol"] = symbol
+    return {"run": run}
 
 
 def custom_openapi():

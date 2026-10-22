@@ -92,7 +92,7 @@ Over the limit: HTTP 429, `Retry-After` when the window end is known, and a body
 
 ## Scenarios
 
-The dashboard cannot move the book by itself. `security_admin` starts a named scenario. FastAPI checks the role, the CSRF token, and the rate limit, then the harness sends a fixed set of orders as `CLIENT3` to port 5001. The matching engine is unchanged. The subscriber sees the resulting `35=W`. Rules write alerts.
+The dashboard cannot move the book by itself. `security_admin` starts a named scenario from `/ui/scenarios`. FastAPI checks the role, the CSRF token, and the rate limit, then stores the scenario name. A separate worker sends the fixed `CLIENT3` orders to port 5001. The read API does not import QuickFIX. The matching engine is unchanged. The subscriber sees the resulting `35=W`. Rules write alerts.
 
 | Scenario | What it does |
 | --- | --- |

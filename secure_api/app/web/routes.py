@@ -22,6 +22,13 @@ from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, search_error
+from secure_api.app.services.scenarios import (
+    enqueue,
+    get_run,
+    scenario_choices,
+    scenario_policy,
+)
+from secure_api.harness.scenarios import ScenarioError, parse_request
 from secure_api.app.services.market_data import (
     SYMBOL_PATTERN,
     feed_health,
@@ -149,6 +156,7 @@ def home(request: Request):
             "csrf_token": row["csrf_token"],
             "can_read_alerts": allows(row["roles"], "alerts:read"),
             "can_read_audit": allows(row["roles"], "audit:read"),
+            "can_run_scenarios": allows(row["roles"], "scenarios:run"),
         },
     )
 
@@ -310,6 +318,101 @@ def alert_rows(
         return blocked
     context = _alert_filters(symbol, severity, rule_name, request)
     return templates.TemplateResponse(request, "alert_rows.html", context)
+
+
+def _scenario_page_context(row, run_id):
+    run = get_run(run_id) if run_id else None
+    return {
+        "scenarios": scenario_choices(),
+        "policy": scenario_policy(),
+        "csrf_token": row["csrf_token"],
+        "run": run,
+    }
+
+
+def _limit_scenario(request, row):
+    if os.environ.get("RATE_LIMIT_REQUIRED", "1") == "0":
+        return None
+    role = row["roles"][0] if row.get("roles") else ""
+    decision = consume(row["client_id"], role, "scenarios:run")
+    if decision.allowed:
+        return None
+    request.state.decision = "denied"
+    request.state.reason = (
+        "limiter_unavailable" if decision.unavailable else "rate_limited"
+    )
+    status = 503 if decision.unavailable else 429
+    headers = None
+    if status == 429:
+        headers = {"Retry-After": str(decision.retry_after)}
+    return HTMLResponse(
+        '<section id="scenario-run"><p>Request limit exceeded</p></section>',
+        status_code=status,
+        headers=headers,
+    )
+
+
+@router.get("/ui/scenarios", response_class=HTMLResponse)
+def scenarios_page(request: Request, run: int = 0):
+    row = _open_session(request, "scenarios:run")
+    if row is None:
+        return RedirectResponse("/ui/login", status_code=302)
+    return templates.TemplateResponse(
+        request, "scenarios.html", _scenario_page_context(row, run)
+    )
+
+
+@router.get("/ui/scenarios/runs/{run_id}", response_class=HTMLResponse)
+def scenario_run(request: Request, run_id: int):
+    row = _open_session(request, "scenarios:run")
+    if row is None:
+        return RedirectResponse("/ui/login", status_code=302)
+    found = get_run(run_id)
+    if found is None:
+        raise HTTPException(
+            status_code=404,
+            detail=_error("not_found", "Unknown scenario run", request),
+        )
+    return templates.TemplateResponse(
+        request, "scenario_run.html", {"run": found, "csrf_token": row["csrf_token"]}
+    )
+
+
+@router.post("/ui/scenarios")
+async def start_scenario(request: Request):
+    row = _open_session(request, "scenarios:run")
+    if row is None:
+        return RedirectResponse("/ui/login", status_code=302)
+    form = await request.form()
+    supplied = str(form.get("csrf_token") or "")
+    if not supplied or not secrets.compare_digest(row["csrf_token"], supplied):
+        request.state.decision = "denied"
+        request.state.reason = "invalid_csrf"
+        raise HTTPException(
+            status_code=403,
+            detail=_error("forbidden", "Missing permission", request),
+        )
+    limited = _limit_scenario(request, row)
+    if limited is not None:
+        return limited
+    payload = {}
+    for key in form.keys():
+        if key == "csrf_token":
+            continue
+        payload[key] = form.get(key)
+    try:
+        name = parse_request(payload)
+    except ScenarioError as error:
+        request.state.decision = "denied"
+        request.state.reason = error.reason
+        raise HTTPException(
+            status_code=400,
+            detail=_error(error.reason, "Invalid scenario", request),
+        )
+    run = enqueue(name, row["client_id"])
+    return RedirectResponse(
+        "/ui/scenarios?run={0}".format(run["id"]), status_code=303
+    )
 
 
 def _audit_context(request, request_id, client_id, action, decision, status_code, recorded_from, recorded_to):
