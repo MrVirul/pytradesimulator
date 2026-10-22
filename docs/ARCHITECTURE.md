@@ -98,11 +98,11 @@ The dashboard cannot move the book by itself. `security_admin` starts a named sc
 | --- | --- |
 | Price movement | Orders that move the price past the configured threshold |
 | Spread widening | Resting bid and ask far enough apart to trip the spread rule |
-| Volume | Several trades whose price or size differ, so the legacy `set()` collapse does not erase them |
+| Volume | Several trades whose price or size differ, sent slowly enough that each one is flushed |
 | Unauthorized access | A client calls a route its scope does not allow |
 | Rate-limit abuse | A client exceeds its policy and receives 429 |
 
-There is no free-form order endpoint.
+The harness request carries only the scenario name: `price_movement`, `spread_widening`, or `volume`. Symbol, side, price, and quantity are fixed in the harness. `ORDER_SYMBOL`, `ORDER_PRICE`, and `ORDER_QTY` are not read. There is no free-form order endpoint.
 
 ## Feed limits to keep visible
 

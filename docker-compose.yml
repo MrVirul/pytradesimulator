@@ -129,7 +129,7 @@ services:
     command: ["python", "/app/secure_api/adapter/subscriber.py"]
     environment:
       EXCHANGE_HOST: exchange
-      SUBSCRIBE_SYMBOLS: MSFT,HYG,BASELINE
+      SUBSCRIBE_SYMBOLS: MSFT,HYG,BASELINE,PRICE,SPREAD,VOLUME
       PYTHONPATH: /app
       DATABASE_URL: postgresql://pytradesim_app:pytradesim@postgres:5432/pytradesim
     volumes:
@@ -158,6 +158,22 @@ services:
       exchange:
         condition: service_healthy
     profiles: ["order"]
+
+  # Named scenario only. SCENARIO is price_movement, spread_widening, or volume.
+  #   docker compose --profile scenario run --rm -e SCENARIO=spread_widening run-scenario
+  run-scenario:
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/harness/run_scenario.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      PYTHONPATH: /app
+      SCENARIO: price_movement
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    profiles: ["scenario"]
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.5

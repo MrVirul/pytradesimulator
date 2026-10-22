@@ -352,6 +352,10 @@ docker compose logs -f subscriber
 
 # Place one resting bid and read it from the read model.
 docker compose --profile order run --rm place-order
+
+# Run one named scenario as CLIENT3. The only input is SCENARIO.
+# price_movement, spread_widening, or volume. There is no price or quantity field.
+docker compose --profile scenario run --rm -e SCENARIO=price_movement run-scenario
 docker compose exec postgres psql -U pytradesim_app -d pytradesim -c "SELECT symbol, status, bids FROM market_snapshots"
 
 # Run the test suite
