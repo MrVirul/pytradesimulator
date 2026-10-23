@@ -78,7 +78,7 @@ def _sign_in(client, monkeypatch, private_pem):
 def test_market_page_requires_a_session(client):
     response = client.get("/ui/market", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["location"] == "/ui/login"
+    assert response.headers["location"] == "/ui/login?error=expired"
 
 
 def test_book_fragment_shows_age_and_status(client, keys, monkeypatch):
@@ -90,7 +90,7 @@ def test_book_fragment_shows_age_and_status(client, keys, monkeypatch):
     assert page.status_code == 200
     assert 'id="market-book"' in page.text
     assert 'hx-get="/ui/market-data/BASELINE/book"' in page.text
-    assert 'hx-trigger="load, every 2s"' in page.text
+    assert "visibilityState" in page.text
     assert "localStorage" not in page.text
     assert token not in page.text
     fragment = client.get("/ui/market-data/BASELINE/book")

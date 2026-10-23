@@ -105,7 +105,7 @@ def _insert_alert(symbol):
 def test_alerts_require_a_session(client):
     response = client.get("/ui/alerts", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["location"] == "/ui/login"
+    assert response.headers["location"] == "/ui/login?error=expired"
 
 
 def test_market_client_cannot_open_alerts(client, keys, monkeypatch):

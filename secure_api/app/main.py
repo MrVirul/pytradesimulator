@@ -65,6 +65,15 @@ def _start_surveillance():
 
 @app.exception_handler(HTTPException)
 def http_exception(request, exc):
+    if request.url.path.startswith("/ui"):
+        from secure_api.app.web.routes import render_error
+
+        message = "The request could not be completed"
+        if isinstance(exc.detail, dict):
+            message = exc.detail.get("error", {}).get("message", message)
+        elif exc.detail:
+            message = str(exc.detail)
+        return render_error(request, exc.status_code, message)
     if isinstance(exc.detail, dict) and "error" in exc.detail:
         return JSONResponse(
             status_code=exc.status_code, content=exc.detail, headers=exc.headers

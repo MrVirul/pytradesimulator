@@ -1,7 +1,7 @@
 <section id="scenario-run"
   {% if run.status == "pending" or run.status == "running" %}
   hx-get="/ui/scenarios/runs/{{ run.id }}"
-  hx-trigger="every 2s"
+  hx-trigger="every 3s [document.visibilityState === 'visible']"
   hx-swap="outerHTML"
   {% endif %}>
   <p>Run {{ run.id }} {{ run.scenario }} is {{ run.status }}.</p>

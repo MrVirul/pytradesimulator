@@ -2,7 +2,7 @@
   id="market-book"
   class="book"
   hx-get="/ui/market-data/{{ symbol }}/book"
-  hx-trigger="load, every 2s"
+  hx-trigger="load, every 3s [document.visibilityState === 'visible']"
   hx-swap="outerHTML">
   <header>
     <h2>{{ symbol }}</h2>

@@ -51,6 +51,51 @@ def _error(code, message, request):
     return {"error": {"code": code, "message": message, "request_id": request_id}}
 
 
+def render_error(request, status, message):
+    hx = request.headers.get("hx-request", "").lower() == "true"
+    name = "error_fragment.html" if hx else "error.html"
+    return templates.TemplateResponse(
+        request,
+        name,
+        {"title": "Request failed", "message": message},
+        status_code=status,
+    )
+
+
+def _login_redirect(request):
+    target = "/ui/login?error=expired"
+    if request.headers.get("hx-request", "").lower() == "true":
+        return HTMLResponse("", status_code=200, headers={"HX-Redirect": target})
+    return RedirectResponse(target, status_code=302)
+
+
+def _fragment_id(request):
+    path = request.url.path
+    if path.startswith("/ui/alerts"):
+        return "alert-rows"
+    if path.startswith("/ui/audit"):
+        return "audit-rows"
+    if path.startswith("/ui/scenarios"):
+        return "scenario-run"
+    return "market-book"
+
+
+def _limit_response(request, retry_after):
+    retry = max(1, int(retry_after or 60))
+    if request.headers.get("hx-request", "").lower() != "true":
+        response = render_error(request, 429, "Limit reached, retrying in {0} s".format(retry))
+        response.headers["Retry-After"] = str(retry)
+        return response
+    target = request.url.path
+    if request.url.query:
+        target = target + "?" + request.url.query
+    body = (
+        '<section id="{0}" hx-get="{1}" hx-trigger="every {2}s" hx-swap="outerHTML">'
+        "<p>Limit reached, retrying in {2} s</p></section>"
+    ).format(_fragment_id(request), target, retry)
+    return HTMLResponse(body, status_code=429, headers={"Retry-After": str(retry)})
+
+
 def _secure_cookie():
     from secure_api.app.config import cookie_secure
 
@@ -184,7 +229,7 @@ def _open_session(request, permission="market-data:read"):
 def home(request: Request):
     row = _open_session(request)
     if row is None:
-        return RedirectResponse("/ui/login", status_code=302)
+        return _login_redirect(request)
     return templates.TemplateResponse(
         request,
         "home.html",
@@ -271,7 +316,7 @@ def _market_guard(request):
 def _guard(request, permission):
     row = _open_session(request, permission)
     if row is None:
-        return RedirectResponse("/ui/login", status_code=302)
+        return _login_redirect(request)
     if os.environ.get("RATE_LIMIT_REQUIRED", "1") == "0":
         return None
     role = row["roles"][0] if row.get("roles") else ""
@@ -282,15 +327,9 @@ def _guard(request, permission):
     request.state.reason = (
         "limiter_unavailable" if decision.unavailable else "rate_limited"
     )
-    status = 503 if decision.unavailable else 429
-    headers = None
-    if status == 429:
-        headers = {"Retry-After": str(decision.retry_after)}
-    return HTMLResponse(
-        '<section id="market-book"><p>Request limit exceeded</p></section>',
-        status_code=status,
-        headers=headers,
-    )
+    if decision.unavailable:
+        return render_error(request, 503, "The rate limiter is unavailable")
+    return _limit_response(request, decision.retry_after)
 
 
 @router.get("/ui/market", response_class=HTMLResponse)
@@ -382,22 +421,16 @@ def _limit_scenario(request, row):
     request.state.reason = (
         "limiter_unavailable" if decision.unavailable else "rate_limited"
     )
-    status = 503 if decision.unavailable else 429
-    headers = None
-    if status == 429:
-        headers = {"Retry-After": str(decision.retry_after)}
-    return HTMLResponse(
-        '<section id="scenario-run"><p>Request limit exceeded</p></section>',
-        status_code=status,
-        headers=headers,
-    )
+    if decision.unavailable:
+        return render_error(request, 503, "The rate limiter is unavailable")
+    return _limit_response(request, decision.retry_after)
 
 
 @router.get("/ui/scenarios", response_class=HTMLResponse)
 def scenarios_page(request: Request, run: int = 0):
     row = _open_session(request, "scenarios:run")
     if row is None:
-        return RedirectResponse("/ui/login", status_code=302)
+        return _login_redirect(request)
     return templates.TemplateResponse(
         request, "scenarios.html", _scenario_page_context(row, run)
     )
@@ -407,7 +440,7 @@ def scenarios_page(request: Request, run: int = 0):
 def scenario_run(request: Request, run_id: int):
     row = _open_session(request, "scenarios:run")
     if row is None:
-        return RedirectResponse("/ui/login", status_code=302)
+        return _login_redirect(request)
     found = get_run(run_id)
     if found is None:
         raise HTTPException(
@@ -423,7 +456,7 @@ def scenario_run(request: Request, run_id: int):
 async def start_scenario(request: Request):
     row = _open_session(request, "scenarios:run")
     if row is None:
-        return RedirectResponse("/ui/login", status_code=302)
+        return _login_redirect(request)
     form = await request.form()
     supplied = str(form.get("csrf_token") or "")
     if not supplied or not secrets.compare_digest(row["csrf_token"], supplied):

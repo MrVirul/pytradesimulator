@@ -80,7 +80,7 @@ def _sign_in(client, monkeypatch, private_pem, roles, client_id):
 def test_audit_requires_a_session(client):
     response = client.get("/ui/audit", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["location"] == "/ui/login"
+    assert response.headers["location"] == "/ui/login?error=expired"
 
 
 def test_denied_calls_can_be_found_by_request_id(client, keys, monkeypatch):

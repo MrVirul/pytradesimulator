@@ -85,7 +85,7 @@ def _csrf(page):
 def test_scenarios_require_a_session(client):
     response = client.get("/ui/scenarios", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["location"] == "/ui/login"
+    assert response.headers["location"] == "/ui/login?error=expired"
 
 
 def test_market_client_cannot_open_the_lab(client, keys, monkeypatch):
