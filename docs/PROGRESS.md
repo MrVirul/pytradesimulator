@@ -62,7 +62,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M7.6** Login page with demo users. Status: `done`. Exit: cards and passwords come from the environment.
 - **M7.7** Overview dashboard. Status: `done`. Exit: each role sees its own permissions and usage.
 - **M7.8** Market console. Status: `done`. Exit: live and stale books render with depth, spread, and freshness.
-- **M7.9** Surveillance console. Status: `todo`. Exit: an analyst can open an alert, and only an admin can edit a rule.
+- **M7.9** Surveillance console. Status: `done`. Exit: an analyst can open an alert, and only an admin can edit a rule.
 - **M7.10** Security console. Status: `todo`. Exit: access and rate-limit scenarios show up in the counts.
 - **M7.11** Security alerts from audit rows. Status: `todo`. Exit: repeated 429s produce one `api_abuse` alert.
 - **M7.12** Scenario lab redesign. Status: `todo`. Exit: a run updates in place and links to its alert or audit row.
@@ -197,3 +197,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-23** — M7.6. The login page shows one card per demo user. Passwords appear only when `SHOW_DEMO_CREDENTIALS` is not `0`. Checked with `pytest secure_api/tests/test_browser_session.py` (7 passed, 1 skipped). A graphical browser was not driven.
 - **2026-10-23** — M7.7. `/ui` shows the signed-in client, the permissions that role grants, feed health, symbol tiles, and that client's rate-limit usage. Checked with `pytest secure_api/tests/test_overview.py` (passed). A graphical browser was not driven.
 - **2026-10-23** — M7.8. The market page lists symbols with status, and the book shows a depth ladder, spread, last trade, and a note that the exchange sends no event time. Pause stops polling. Checked with `pytest secure_api/tests/test_market_console.py` (passed). A graphical browser was not driven.
+- **2026-10-23** — M7.9. Surveillance filters are selects, an alert page shows the observed value against its threshold, and `GET /api/v1/alerts/{id}` returns that alert. Saving a rule requires `rules:write`, the CSRF token, and the admin rate category. An analyst edit is rejected. An admin edit is audited as an administrative change. Checked with `pytest secure_api/tests/test_rules_admin.py` (3 passed). A graphical browser was not driven.

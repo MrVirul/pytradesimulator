@@ -4,7 +4,13 @@ ROLE_PERMISSIONS = {
     "market_data_client": frozenset(["market-data:read"]),
     "surveillance_analyst": frozenset(["market-data:read", "alerts:read"]),
     "security_admin": frozenset(
-        ["market-data:read", "alerts:read", "audit:read", "scenarios:run"]
+        [
+            "market-data:read",
+            "alerts:read",
+            "audit:read",
+            "scenarios:run",
+            "rules:write",
+        ]
     ),
 }
 
@@ -13,6 +19,7 @@ RATE_CATEGORY = {
     "alerts:read": "alerts",
     "audit:read": "audit",
     "scenarios:run": "scenario",
+    "rules:write": "admin",
 }
 
 

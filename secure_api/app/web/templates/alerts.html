@@ -6,12 +6,55 @@
       hx-get="/ui/alerts/rows" hx-trigger="change, submit"
       hx-target="#alert-rows" hx-swap="outerHTML">
   <label for="symbol">Symbol</label>
-  <input id="symbol" name="symbol" value="{{ symbol }}" maxlength="16">
+  <select id="symbol" name="symbol">
+    <option value="">All</option>
+    {% for name in choices.symbols %}
+    <option value="{{ name }}" {% if name == symbol %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
   <label for="rule">Rule</label>
-  <input id="rule" name="rule_name" value="{{ rule_name }}" maxlength="64">
+  <select id="rule" name="rule_name">
+    <option value="">All</option>
+    {% for name in choices.rules %}
+    <option value="{{ name }}" {% if name == rule_name %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
   <label for="severity">Severity</label>
-  <input id="severity" name="severity" value="{{ severity }}" maxlength="16">
+  <select id="severity" name="severity">
+    <option value="">All</option>
+    {% for name in choices.severities %}
+    <option value="{{ name }}" {% if name == severity %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <label for="created_from">From</label>
+  <input id="created_from" name="created_from" value="{{ created_from }}">
+  <label for="created_to">To</label>
+  <input id="created_to" name="created_to" value="{{ created_to }}">
   <button type="submit">Filter</button>
 </form>
 {% include "alert_rows.html" %}
+<section class="card">
+  <h2>Rules</h2>
+  {% for rule in rules %}
+  <form method="post" action="/ui/rules">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="name" value="{{ rule.name }}">
+    <p>{{ rule.name }}{% if rule.window_seconds %} over {{ rule.window_seconds }}s{% endif %}</p>
+    <label for="threshold-{{ rule.name }}">Threshold</label>
+    <input id="threshold-{{ rule.name }}" name="threshold" value="{{ rule.threshold }}" {% if not can_write_rules %}disabled{% endif %}>
+    <label><input type="checkbox" name="enabled" value="1" {% if rule.enabled %}checked{% endif %} {% if not can_write_rules %}disabled{% endif %}> Enabled</label>
+    {% if can_write_rules %}<button type="submit">Save</button>{% endif %}
+  </form>
+  {% endfor %}
+</section>
+<section class="card">
+  <h2>Timeline</h2>
+  <ul>
+    {% for event in events %}
+    <li>{{ event.at }} {{ event.kind }} {{ event.label }}</li>
+    {% else %}
+    <li>No alerts or scenario runs yet.</li>
+    {% endfor %}
+  </ul>
+</section>
 {% endblock %}

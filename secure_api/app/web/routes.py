@@ -23,7 +23,16 @@ from secure_api.app.auth.oidc import authorize_url, exchange_code, logout_url
 from secure_api.app.config import demo_users, public_api_url, show_demo_credentials
 from secure_api.app.auth.policies import ROLE_PERMISSIONS, allows
 from secure_api.app.auth.rate_limit import consume, snapshot
-from secure_api.app.services.alerts import filter_error, list_alerts
+from secure_api.app.services.alerts import (
+    alert_context,
+    filter_choices,
+    filter_error,
+    get_alert,
+    list_alerts,
+    list_rules,
+    timeline,
+    update_rule,
+)
 from secure_api.app.services.audit import list_events, search_error
 from secure_api.app.services.scenarios import (
     get_run,
@@ -452,41 +461,100 @@ def market_book(request: Request, symbol: str):
     return templates.TemplateResponse(request, "book.html", context)
 
 
-def _alert_filters(symbol, severity, rule_name, request):
-    error = filter_error(symbol, severity, rule_name)
+def _alert_filters(symbol, severity, rule_name, request, created_from="", created_to=""):
+    error = filter_error(symbol, severity, rule_name, created_from, created_to)
     if error:
         raise HTTPException(
             status_code=400,
             detail=_error(error, "Invalid filter", request),
         )
     return {
-        "alerts": list_alerts(symbol, severity, rule_name),
+        "alerts": list_alerts(symbol, severity, rule_name, created_from, created_to),
         "symbol": symbol,
         "severity": severity,
         "rule_name": rule_name,
+        "created_from": created_from,
+        "created_to": created_to,
     }
 
 
 @router.get("/ui/alerts", response_class=HTMLResponse)
 def alerts_page(
-    request: Request, symbol: str = "", severity: str = "", rule_name: str = ""
+    request: Request,
+    symbol: str = "",
+    severity: str = "",
+    rule_name: str = "",
+    created_from: str = "",
+    created_to: str = "",
 ):
     blocked = _guard(request, "alerts:read")
     if blocked is not None:
         return blocked
-    context = _alert_filters(symbol, severity, rule_name, request)
-    return page(request, "alerts.html", request.state.session_row, context)
+    context = _alert_filters(symbol, severity, rule_name, request, created_from, created_to)
+    row = request.state.session_row
+    context["choices"] = filter_choices()
+    context["rules"] = list_rules()
+    context["events"] = timeline()
+    context["can_write_rules"] = allows(row.get("roles"), "rules:write")
+    return page(request, "alerts.html", row, context)
 
 
 @router.get("/ui/alerts/rows", response_class=HTMLResponse)
 def alert_rows(
-    request: Request, symbol: str = "", severity: str = "", rule_name: str = ""
+    request: Request,
+    symbol: str = "",
+    severity: str = "",
+    rule_name: str = "",
+    created_from: str = "",
+    created_to: str = "",
 ):
     blocked = _guard(request, "alerts:read")
     if blocked is not None:
         return blocked
-    context = _alert_filters(symbol, severity, rule_name, request)
+    context = _alert_filters(symbol, severity, rule_name, request, created_from, created_to)
     return templates.TemplateResponse(request, "alert_rows.html", context)
+
+
+@router.get("/ui/alerts/{alert_id}", response_class=HTMLResponse)
+def alert_page(request: Request, alert_id: int):
+    blocked = _guard(request, "alerts:read")
+    if blocked is not None:
+        return blocked
+    found = get_alert(alert_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail=_error("not_found", "Alert not found", request))
+    return page(
+        request,
+        "alert_detail.html",
+        request.state.session_row,
+        {"alert": found, "stored": alert_context(found)},
+    )
+
+
+@router.post("/ui/rules")
+def change_rule(
+    request: Request,
+    csrf_token: str = Form(""),
+    name: str = Form(""),
+    threshold: str = Form(""),
+    enabled: str = Form(""),
+):
+    blocked = _guard(request, "rules:write")
+    if blocked is not None:
+        return blocked
+    row = request.state.session_row
+    if not secrets.compare_digest(row["csrf_token"], csrf_token or ""):
+        request.state.decision = "denied"
+        request.state.reason = "invalid_csrf"
+        raise HTTPException(status_code=403, detail=_error("forbidden", "Missing permission", request))
+    try:
+        value = float(threshold)
+    except ValueError:
+        value = 0
+    if value <= 0 or not update_rule(name, value, enabled == "1"):
+        raise HTTPException(status_code=400, detail=_error("invalid_rule", "Invalid rule", request))
+    request.state.reason = "administrative_change"
+    return RedirectResponse("/ui/alerts", status_code=303)
 
 
 def _scenario_page_context(row, run_id):

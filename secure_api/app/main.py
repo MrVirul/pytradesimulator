@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from secure_api.app.auth import oidc
 from secure_api.app.config import keycloak_client_id
 from secure_api.app.models.payloads import (
+    AlertDetailPayload,
     AlertListPayload,
     AuditListPayload,
     BookPayload,
@@ -27,7 +28,7 @@ from secure_api.app.models.payloads import (
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
-from secure_api.app.services.alerts import filter_error, list_alerts
+from secure_api.app.services.alerts import filter_error, get_alert, list_alerts
 from secure_api.app.services.audit import list_events, search_error, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 from secure_api.app.services.scenarios import start_named
@@ -271,6 +272,21 @@ def alerts(
     if not os.environ.get("DATABASE_URL"):
         return {"alerts": []}
     return {"alerts": list_alerts(symbol, severity, rule_name)}
+
+
+@app.get(
+    "/api/v1/alerts/{alert_id}",
+    response_model=AlertDetailPayload,
+    responses=_errors({404: _denied(404, "Alert not found")}),
+)
+def alert_by_id(alert_id: int, request: Request, _claims=Depends(require("alerts:read"))):
+    found = get_alert(alert_id) if os.environ.get("DATABASE_URL") else None
+    if found is None:
+        raise HTTPException(
+            status_code=404,
+            detail=error_body("not_found", "Alert not found", request_id_of(request)),
+        )
+    return found
 
 
 @app.get(

@@ -16,7 +16,7 @@
       {% for alert in alerts %}
       <tr>
         <td>{{ alert.created_at }}</td>
-        <td>{{ alert.rule_name }}</td>
+        <td><a href="/ui/alerts/{{ alert.id }}">{{ alert.rule_name }}</a></td>
         <td>{{ alert.symbol or "—" }}</td>
         <td>{{ alert.severity }}</td>
         <td>{{ alert.observed_value }}</td>

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Alert {{ alert.id }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ alert.rule_name }}</h1>
+  <p>Symbol {{ alert.symbol or "—" }}</p>
+  <p>Severity {{ alert.severity }}</p>
+  <p>Observed {{ alert.observed_value }} against threshold {{ alert.threshold }}</p>
+  <p>Time {{ alert.created_at }}</p>
+  <p>Sequence {{ alert.ingest_sequence if alert.ingest_sequence is not none else "—" }}</p>
+  <p>{{ alert.detail }}</p>
+</section>
+<section class="card">
+  <h2>Book at this sequence</h2>
+  {% if stored.book %}
+  <p>Bids {{ stored.book.bids }}</p>
+  <p>Asks {{ stored.book.asks }}</p>
+  {% else %}
+  <p>That book is no longer the stored snapshot{% if stored.current_sequence is not none %}. The current sequence is {{ stored.current_sequence }}{% endif %}.</p>
+  {% endif %}
+  <ul>
+    {% for trade in stored.trades %}
+    <li>{{ trade.price }} × {{ trade.quantity }}</li>
+    {% else %}
+    <li>No trades at this sequence.</li>
+    {% endfor %}
+  </ul>
+</section>
+<p><a href="/ui/alerts">Back to surveillance</a></p>
+{% endblock %}

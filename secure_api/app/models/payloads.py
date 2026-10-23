@@ -129,6 +129,11 @@ class AlertPayload(BaseModel):
     detail: str
 
 
+class AlertDetailPayload(AlertPayload):
+    symbol: Optional[str] = None
+    ingest_sequence: Optional[int] = None
+
+
 class AlertListPayload(BaseModel):
     alerts: List[AlertPayload]
 
