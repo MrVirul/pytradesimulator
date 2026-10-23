@@ -217,7 +217,10 @@ def logout(request: Request, csrf_token: str = Form("")):
     request.state.client_id = row["client_id"]
     request.state.decision = "allowed"
     request.state.reason = "ok"
-    response = RedirectResponse("/ui/login", status_code=303)
+    response = RedirectResponse(
+        logout_url(public_api_url() + "/ui/login", "signed_out", row.get("id_token") or ""),
+        status_code=303,
+    )
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response
 
