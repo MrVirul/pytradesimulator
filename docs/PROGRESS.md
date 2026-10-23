@@ -64,7 +64,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M7.8** Market console. Status: `done`. Exit: live and stale books render with depth, spread, and freshness.
 - **M7.9** Surveillance console. Status: `done`. Exit: an analyst can open an alert, and only an admin can edit a rule.
 - **M7.10** Security console. Status: `done`. Exit: access and rate-limit scenarios show up in the counts.
-- **M7.11** Security alerts from audit rows. Status: `todo`. Exit: repeated 429s produce one `api_abuse` alert.
+- **M7.11** Security alerts from audit rows. Status: `done`. Exit: repeated 429s produce one `api_abuse` alert.
 - **M7.12** Scenario lab redesign. Status: `todo`. Exit: a run updates in place and links to its alert or audit row.
 - **M7.13** Docs and evidence. Status: `todo`. Exit: a new checkout can copy `.env.example` and sign in as each demo user.
 
@@ -199,3 +199,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-23** — M7.8. The market page lists symbols with status, and the book shows a depth ladder, spread, last trade, and a note that the exchange sends no event time. Pause stops polling. Checked with `pytest secure_api/tests/test_market_console.py` (passed). A graphical browser was not driven.
 - **2026-10-23** — M7.9. Surveillance filters are selects, an alert page shows the observed value against its threshold, and `GET /api/v1/alerts/{id}` returns that alert. Saving a rule requires `rules:write`, the CSRF token, and the admin rate category. An analyst edit is rejected. An admin edit is audited as an administrative change. Checked with `pytest secure_api/tests/test_rules_admin.py` (3 passed). A graphical browser was not driven.
 - **2026-10-23** — M7.10. `/ui/security` shows request totals, 401/403/429 counts, latency percentiles, per-minute bars, top clients, and policies. Audit search uses selects for decision and status, and each request id links to the audit filter. `GET /api/v1/metrics` requires `operations:read`. Checked with `pytest secure_api/tests/test_security_console.py` (2 passed). A graphical browser was not driven. The live scenario counts are checked with the stack in M7.13.
+- **2026-10-23** — M7.11. The API poller reads `audit_events` for `api_abuse` (429s above 2 in 60 seconds) and `access_denied` (401s and 403s above 5 in 60 seconds). It writes one alert per client per window, with no symbol and the client in the detail. Seeded by migration 008. Checked with `docker compose run --rm --no-deps -v` the API tree `:ro --entrypoint python api -m pytest secure_api/tests/test_security_alerts.py` (passed: three 429s, one `api_abuse` alert, a second poll did not add another). A graphical browser was not driven.

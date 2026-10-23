@@ -121,7 +121,7 @@ class TradeListPayload(BaseModel):
 class AlertPayload(BaseModel):
     id: int
     rule_name: str
-    symbol: str
+    symbol: Optional[str] = None
     severity: str
     observed_value: float
     threshold: float

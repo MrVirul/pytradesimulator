@@ -8,11 +8,12 @@ observation is not alerted twice.
 
 import json
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from secure_api.app.db import connection, lock
 
 RULES = ("price_movement", "spread_widening", "volume")
+SECURITY_RULES = ("api_abuse", "access_denied")
 
 
 def _levels(value):
@@ -197,12 +198,90 @@ def _advance(conn, symbol, sequence):
         )
 
 
+def _like_client(rule_name, client_id):
+    safe = client_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return "{0} client {1} %".format(rule_name, safe)
+
+
+def _security_rules(conn):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, name, enabled, threshold, window_seconds
+            FROM surveillance_rules
+            WHERE enabled AND name = ANY(%s)
+            """,
+            (list(SECURITY_RULES),),
+        )
+        return [
+            {
+                "id": row[0],
+                "name": row[1],
+                "enabled": row[2],
+                "threshold": float(row[3]),
+                "window_seconds": row[4] or 60,
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+def _record_security(conn):
+    """One alert per client while the recent denial count stays above the rule."""
+    written = 0
+    now = datetime.now(timezone.utc)
+    for rule in _security_rules(conn):
+        start = now - timedelta(seconds=int(rule["window_seconds"]))
+        codes = [429] if rule["name"] == "api_abuse" else [401, 403]
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT client_id, count(*)
+                FROM audit_events
+                WHERE status_code = ANY(%s)
+                  AND recorded_at >= %s
+                  AND client_id <> ''
+                GROUP BY client_id
+                HAVING count(*) > %s
+                """,
+                (codes, start, int(rule["threshold"])),
+            )
+            breaches = cursor.fetchall()
+        for client_id, count in breaches:
+            detail = "{0} client {1} count {2}".format(rule["name"], client_id, int(count))
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM surveillance_alerts
+                    WHERE rule_id = %s
+                      AND created_at >= %s
+                      AND detail LIKE %s ESCAPE '\\'
+                    """,
+                    (rule["id"], start, _like_client(rule["name"], client_id)),
+                )
+                if cursor.fetchone() is not None:
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO surveillance_alerts (
+                        rule_id, symbol, severity, observed_value, threshold,
+                        created_at, detail, ingest_sequence
+                    )
+                    VALUES (%s, NULL, 'warning', %s, %s, %s, %s, NULL)
+                    """,
+                    (rule["id"], int(count), rule["threshold"], now, detail),
+                )
+                written += 1
+    return written
+
+
 def evaluate_pending():
     """Write alerts for observations the API has not judged yet."""
     written = 0
     with lock():
         conn = connection()
         with conn.transaction():
+            written += _record_security(conn)
             rules = _load_rules(conn)
             latest = {}
             for row in _pending(conn):
