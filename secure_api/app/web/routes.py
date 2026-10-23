@@ -45,6 +45,44 @@ templates = Jinja2Templates(
     directory=os.path.join(os.path.dirname(__file__), "templates")
 )
 
+NAV = (
+    ("Overview", "/ui", "market-data:read"),
+    ("Market", "/ui/market", "market-data:read"),
+    ("Surveillance", "/ui/alerts", "alerts:read"),
+    ("Security", "/ui/security", "audit:read"),
+    ("Scenarios", "/ui/scenarios", "scenarios:run"),
+)
+
+
+def shell(row, request):
+    minutes = 0
+    signed_in = row is not None
+    roles = list(row.get("roles") or []) if signed_in else []
+    expires = row.get("expires_at") if signed_in else None
+    if expires is not None:
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        minutes = max(0, int((expires - datetime.now(timezone.utc)).total_seconds() // 60))
+    visible = []
+    for label, href, permission in NAV:
+        if signed_in and allows(roles, permission):
+            visible.append((label, href))
+    return {
+        "signed_in": signed_in,
+        "client_id": row.get("client_id", "") if signed_in else "",
+        "roles": roles,
+        "csrf_token": row.get("csrf_token", "") if signed_in else "",
+        "minutes_left": minutes,
+        "nav": visible,
+        "path": request.url.path,
+    }
+
+
+def page(request, name, row, extra, status_code=200):
+    context = shell(row, request)
+    context.update(extra)
+    return templates.TemplateResponse(request, name, context, status_code=status_code)
+
 
 def _error(code, message, request):
     request_id = getattr(request.state, "request_id", "")
@@ -54,12 +92,11 @@ def _error(code, message, request):
 def render_error(request, status, message):
     hx = request.headers.get("hx-request", "").lower() == "true"
     name = "error_fragment.html" if hx else "error.html"
-    return templates.TemplateResponse(
-        request,
-        name,
-        {"title": "Request failed", "message": message},
-        status_code=status,
-    )
+    context = {"title": "Request failed", "message": message}
+    if hx:
+        return templates.TemplateResponse(request, name, context, status_code=status)
+    context.update(shell(None, request))
+    return templates.TemplateResponse(request, name, context, status_code=status)
 
 
 def _login_redirect(request):
@@ -117,11 +154,7 @@ def _set_session_cookie(response, session_id):
 def login_page(request: Request):
     if os.environ.get("DATABASE_URL") and load_session(request.cookies.get(SESSION_COOKIE)):
         return RedirectResponse("/ui", status_code=302)
-    return templates.TemplateResponse(
-        request,
-        "login.html",
-        {"error": request.query_params.get("error", "")},
-    )
+    return page(request, "login.html", None, {"error": request.query_params.get("error", "")})
 
 
 @router.get("/ui/login/start")
@@ -222,6 +255,7 @@ def _open_session(request, permission="market-data:read"):
         )
     request.state.decision = "allowed"
     request.state.reason = "ok"
+    request.state.session_row = row
     return row
 
 
@@ -230,18 +264,7 @@ def home(request: Request):
     row = _open_session(request)
     if row is None:
         return _login_redirect(request)
-    return templates.TemplateResponse(
-        request,
-        "home.html",
-        {
-            "client_id": row["client_id"],
-            "roles": ", ".join(row["roles"] or []),
-            "csrf_token": row["csrf_token"],
-            "can_read_alerts": allows(row["roles"], "alerts:read"),
-            "can_read_audit": allows(row["roles"], "audit:read"),
-            "can_run_scenarios": allows(row["roles"], "scenarios:run"),
-        },
-    )
+    return page(request, "home.html", row, {})
 
 
 @router.post("/ui/logout")
@@ -347,7 +370,7 @@ def market_page(request: Request, symbol: str = "BASELINE"):
         choices.append(symbol)
     context = _book_context(symbol)
     context["symbol_choices"] = choices
-    return templates.TemplateResponse(request, "market.html", context)
+    return page(request, "market.html", request.state.session_row, context)
 
 
 @router.get("/ui/market-data/{symbol}/book", response_class=HTMLResponse)
@@ -386,7 +409,7 @@ def alerts_page(
     if blocked is not None:
         return blocked
     context = _alert_filters(symbol, severity, rule_name, request)
-    return templates.TemplateResponse(request, "alerts.html", context)
+    return page(request, "alerts.html", request.state.session_row, context)
 
 
 @router.get("/ui/alerts/rows", response_class=HTMLResponse)
@@ -431,9 +454,7 @@ def scenarios_page(request: Request, run: int = 0):
     row = _open_session(request, "scenarios:run")
     if row is None:
         return _login_redirect(request)
-    return templates.TemplateResponse(
-        request, "scenarios.html", _scenario_page_context(row, run)
-    )
+    return page(request, "scenarios.html", row, _scenario_page_context(row, run))
 
 
 @router.get("/ui/scenarios/runs/{run_id}", response_class=HTMLResponse)
@@ -518,6 +539,14 @@ def _audit_context(request, request_id, client_id, action, decision, status_code
     }
 
 
+@router.get("/ui/security", response_class=HTMLResponse)
+def security_page(request: Request):
+    blocked = _guard(request, "audit:read")
+    if blocked is not None:
+        return blocked
+    return page(request, "security.html", request.state.session_row, {})
+
+
 @router.get("/ui/audit", response_class=HTMLResponse)
 def audit_page(
     request: Request,
@@ -535,7 +564,8 @@ def audit_page(
     context = _audit_context(
         request, request_id, client_id, action, decision, status_code, recorded_from, recorded_to
     )
-    return templates.TemplateResponse(request, "audit.html", context)
+    context["filter_client"] = context.pop("client_id")
+    return page(request, "audit.html", request.state.session_row, context)
 
 
 @router.get("/ui/audit/rows", response_class=HTMLResponse)

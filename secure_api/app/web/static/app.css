@@ -1,0 +1,100 @@
+:root {
+  --ink: #1c1915;
+  --muted: #5c564c;
+  --line: #d9d1c3;
+  --paper: #f6f1e8;
+  --card: #fffdf8;
+  --accent: #0f6e56;
+  --accent-ink: #f4fff9;
+  --warn: #8a4b08;
+  --danger: #8f1d1d;
+  --stale: #6b6256;
+  --focus: #0b5cab;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font: 16px/1.45 "Segoe UI", sans-serif;
+}
+
+a { color: var(--accent); }
+a:focus, button:focus, input:focus, select:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  padding: 12px 20px;
+  background: #1c1915;
+  color: #f6f1e8;
+}
+
+.top a { color: #f6f1e8; text-decoration: none; }
+.brand { font-weight: 700; margin-right: 8px; }
+.top nav { display: flex; flex-wrap: wrap; gap: 14px; }
+.top a[aria-current="page"] { text-decoration: underline; }
+
+.user-chip {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.user-chip button, button, .top button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+main { padding: 20px; max-width: 1100px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.card, .book, .facts {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 13px;
+  background: #e7f6ef;
+  color: var(--accent);
+}
+
+.pill.stale, .pill.uninitialized { background: #eeeae3; color: var(--stale); }
+.pill.denied, .pill.warning { background: #fde8e4; color: var(--danger); }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { font-size: 13px; color: var(--muted); }
+
+.ladder { display: grid; gap: 4px; }
+.level { display: grid; grid-template-columns: 80px 1fr 70px; gap: 8px; align-items: center; }
+.bar { height: 10px; background: #c9ddd4; border-radius: 4px; }
+.ask .bar { background: #e7c7bf; }
+
+.message:empty { display: none; }
+.message { margin: 12px 20px 0; }

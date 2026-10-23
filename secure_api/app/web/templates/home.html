@@ -1,20 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>pytradesim</title>
-</head>
-<body>
-  <h1>Signed in</h1>
-  <p>Client <span id="client-id">{{ client_id }}</span></p>
-  <p>Roles {{ roles }}</p>
-  <p><a href="/ui/market">Market</a></p>
-  {% if can_read_alerts %}<p><a href="/ui/alerts">Alerts</a></p>{% endif %}
-  {% if can_read_audit %}<p><a href="/ui/audit">Audit</a></p>{% endif %}
-  {% if can_run_scenarios %}<p><a href="/ui/scenarios">Scenarios</a></p>{% endif %}
-  <form method="post" action="/ui/logout">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit">Sign out</button>
-  </form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Overview</h1>
+  <p>Signed in as {{ client_id }}.</p>
+  <p>Roles: {{ roles | join(", ") }}</p>
+</section>
+{% endblock %}

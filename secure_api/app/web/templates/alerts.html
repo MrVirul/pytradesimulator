@@ -1,31 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Alerts</title>
-  <meta name="htmx-config" content='{"historyEnabled": false, "historyCacheSize": 0}'>
-  <link rel="stylesheet" href="/static/market.css">
-  <script src="/static/htmx.min.js" defer></script>
-</head>
-<body>
-  <header class="top">
-    <h1>Alerts</h1>
-    <nav>
-      <a href="/ui/market">Market</a>
-      <a href="/ui">Account</a>
-    </nav>
-  </header>
-  <form id="alert-filters" class="symbol-form" method="get" action="/ui/alerts"
-        hx-get="/ui/alerts/rows" hx-trigger="change, submit"
-        hx-target="#alert-rows" hx-swap="outerHTML">
-    <label for="symbol">Symbol</label>
-    <input id="symbol" name="symbol" value="{{ symbol }}" maxlength="16">
-    <label for="severity">Severity</label>
-    <input id="severity" name="severity" value="{{ severity }}" maxlength="16">
-    <label for="rule_name">Rule</label>
-    <input id="rule_name" name="rule_name" value="{{ rule_name }}" maxlength="64">
-    <button type="submit">Filter</button>
-  </form>
-  {% include "alert_rows.html" %}
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Surveillance{% endblock %}
+{% block content %}
+<h1>Surveillance</h1>
+<form id="alert-filters" class="symbol-form" method="get" action="/ui/alerts"
+      hx-get="/ui/alerts/rows" hx-trigger="change, submit"
+      hx-target="#alert-rows" hx-swap="outerHTML">
+  <label for="symbol">Symbol</label>
+  <input id="symbol" name="symbol" value="{{ symbol }}" maxlength="16">
+  <label for="rule">Rule</label>
+  <input id="rule" name="rule_name" value="{{ rule_name }}" maxlength="64">
+  <label for="severity">Severity</label>
+  <input id="severity" name="severity" value="{{ severity }}" maxlength="16">
+  <button type="submit">Filter</button>
+</form>
+{% include "alert_rows.html" %}
+{% endblock %}

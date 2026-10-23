@@ -1,13 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Sign in</title>
-</head>
-<body>
-  <h1>pytradesim</h1>
-  <p>Sign in with the identity server. The access token stays on the server.</p>
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Sign in</h1>
   <p><a href="/ui/login/start">Continue</a></p>
-  <p><a href="/docs">API documentation</a></p>
-</body>
-</html>
+</section>
+{% endblock %}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}pytradesim{% endblock %}</title>
+  <meta name="htmx-config" content='{"historyEnabled": false, "historyCacheSize": 0}'>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/ui">pytradesim</a>
+    <nav>
+      {% for label, href in nav %}
+      <a href="{{ href }}" {% if path == href %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+      <a href="/docs">API docs</a>
+    </nav>
+    {% if signed_in %}
+    <div class="user-chip">
+      <span>{{ client_id }}</span>
+      <span>{{ roles | join(", ") }}</span>
+      <span>{{ minutes_left }} min left</span>
+      <form method="post" action="/ui/logout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit">Sign out</button>
+      </form>
+    </div>
+    {% endif %}
+  </header>
+  <div class="message">{% block message %}{% endblock %}</div>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

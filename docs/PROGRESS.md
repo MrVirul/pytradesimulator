@@ -58,7 +58,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M7.2** Sign-in that can switch users. Status: `done`. Exit: a second sign-in started for `market` asks for a password and the session is `market`.
 - **M7.3** Sign-out through Keycloak. Status: `done`. Exit: after sign-out, the next sign-in asks for a password.
 - **M7.4** HTMX-aware session, limit, and error responses. Status: `done`. Exit: an expired fragment redirects, and a 429 fragment keeps polling.
-- **M7.5** Shared layout and stylesheet. Status: `todo`. Exit: every page extends `base.html` and the nav matches the role.
+- **M7.5** Shared layout and stylesheet. Status: `done`. Exit: every page extends `base.html` and the nav matches the role.
 - **M7.6** Login page with demo users. Status: `todo`. Exit: cards and passwords come from the environment.
 - **M7.7** Overview dashboard. Status: `todo`. Exit: each role sees its own permissions and usage.
 - **M7.8** Market console. Status: `todo`. Exit: live and stale books render with depth, spread, and freshness.
@@ -193,3 +193,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-23** — M7.2. Named sign-in ends the Keycloak session first, then asks for that user's password. The browser session ends when the access token expires. A used callback returns to `/ui/login?error=expired`. Checked with `pytest secure_api/tests/test_browser_session.py` (6 passed, 1 skipped). A scripted sign-in as `admin`, then as `market`, showed the password form with username `market` and the home page client was `market`. A graphical browser was not driven.
 - **2026-10-23** — M7.3. `POST /ui/logout` deletes the app session and redirects to the Keycloak end-session endpoint with `id_token_hint`. Checked with `pytest secure_api/tests/test_logout.py` (passed). A scripted admin sign-in then sign-out landed on `/ui/login`, `/ui` redirected to login, and the next sign-in showed the password form. A graphical browser was not driven.
 - **2026-10-23** — M7.4. An HTMX request with no session gets `HX-Redirect` and does not include the login page. A 429 fragment says the limit was reached and keeps polling after `Retry-After`. Polling runs only while the tab is visible. `/ui` errors render HTML. Checked with `pytest secure_api/tests/test_htmx_errors.py` (3 passed).
+- **2026-10-23** — M7.5. Signed-in pages extend `base.html` with role-aware navigation, a user chip, and a sign-out form. Checked with `pytest secure_api/tests/test_layout.py` (passed). A graphical browser was not driven.
