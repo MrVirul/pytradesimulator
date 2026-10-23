@@ -141,8 +141,21 @@ def test_login_start_asks_for_the_named_user(client, monkeypatch):
     response = client.get("/ui/login/start", params={"user": "market"}, follow_redirects=False)
     assert response.status_code == 302
     location = response.headers["location"]
-    assert "/protocol/openid-connect/logout" in location
-    assert "state=market" in location
+    assert "login_hint=market" in location
+    assert "prompt=login" in location
+    monkeypatch.setattr(
+        "secure_api.app.web.routes.load_session",
+        lambda session_id: {"id_token": "id-token-value", "client_id": "admin"},
+    )
+    monkeypatch.setattr("secure_api.app.web.routes.delete_session", lambda session_id: None)
+    switching = client.get(
+        "/ui/login/start",
+        params={"user": "market"},
+        headers={"Cookie": "pytradesim_session=sess"},
+        follow_redirects=False,
+    )
+    assert "/protocol/openid-connect/logout" in switching.headers["location"]
+    assert "id_token_hint=id-token-value" in switching.headers["location"]
     resumed = client.get("/ui/login/resume", params={"state": "market"}, follow_redirects=False)
     assert resumed.status_code == 302
     resumed_location = resumed.headers["location"]

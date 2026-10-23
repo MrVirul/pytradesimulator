@@ -49,15 +49,39 @@ A quiet symbol keeps an old `received_at` while the session is healthy, because 
 
 After the exchange process restarts, previously stored books are marked `stale` until a new snapshot arrives. A logged-on session with no new snapshot is still stale data. The API does not present those rows as the confirmed live book.
 
+## Configuration
+
+Compose, Keycloak, and the API read one `.env` file when the containers start. Nothing secret is copied into an image. A checkout with no `.env` uses the defaults in `.env.example`. Keycloak substitutes `${PUBLIC_API_URL}`, the demo passwords, and the scenario client secret while it imports the realm. Recreate the Keycloak container after those values change. The import does not update a realm that already exists.
+
+## Sign-in
+
+The login page lists `market`, `analyst`, and `admin`. Choosing one stores a PKCE attempt, ends any current Keycloak session, and then opens Keycloak with `login_hint` and `prompt=login`. The callback stores the access token and the id token in `browser_sessions`. The browser cookie is only the session id. The session ends at the earlier of the token `exp` and `SESSION_MINUTES` (15 by default, and the realm access token lasts 900 seconds).
+
+Sign out posts the CSRF token, deletes the session row, and redirects to the Keycloak end-session endpoint with `id_token_hint`. Keycloak returns to `/ui/login`. A fragment request with no session gets `HX-Redirect` instead of a login page swapped into the fragment. A 429 fragment says the limit was reached and keeps polling after `Retry-After`. Polling runs only while the tab is visible.
+
+## Consoles
+
+Every signed-in page uses one layout. The navigation shows only the pages that role can open.
+
+| Page | Who | What it shows |
+| --- | --- | --- |
+| Overview `/ui` | anyone signed in | identity, permissions, feed health, symbol tiles, that client's rate-limit usage |
+| Market `/ui/market` | anyone signed in | depth, spread, last trade, freshness, pause and refresh |
+| Surveillance `/ui/alerts` | analyst and admin | filters, alert detail, rule editor for admin, timeline |
+| Security `/ui/security` | admin | audit totals, latency percentiles, policies, audit search |
+| Scenarios `/ui/scenarios` | admin | one card per named scenario, run history, remaining budget |
+
+`GET /api/v1/alerts/{id}` returns one alert. `GET /api/v1/metrics` requires `operations:read`. An admin rule change requires `rules:write`, the CSRF token, and the `admin` rate category, and it is audited as an administrative change.
+
 ## Authorization
 
 Checked in one policy module, used by `/api/v1` and `/ui`.
 
-| Role | Market data | Alerts | Audit events | Scenario controls |
-| --- | --- | --- | --- | --- |
-| `market_data_client` | Read | No | No | No |
-| `surveillance_analyst` | Read | Read | No | No |
-| `security_admin` | Read | Read | Read | Yes |
+| Role | Market data | Alerts | Audit and metrics | Rules | Scenario controls |
+| --- | --- | --- | --- | --- | --- |
+| `market_data_client` | Read | No | No | No | No |
+| `surveillance_analyst` | Read | Read | No | No | No |
+| `security_admin` | Read | Read | Read | Write | Yes |
 
 Browser login is Authorization Code with PKCE. The session cookie is `HttpOnly` and `Secure`, with a `SameSite` value, and state-changing forms also send a CSRF token. API clients send a short-lived JWT. The API checks signature, issuer, audience, expiry, and scope. Tokens are not written to logs or local storage.
 
@@ -76,6 +100,8 @@ The legacy publisher collapses identical `(price, quantity)` pairs inside one fl
 
 The API, not the subscriber, reads each new `market_observations` row. `price_movement` uses the highest trade price on that snapshot, or the best bid when the snapshot has no trade. `spread_widening` is the best ask minus the best bid, and it stays quiet when either side is missing. `volume` sums trade quantities for the symbol inside the rule window. An alert is written when the observed value is above the rule threshold. The row stores the rule, the observed value, the threshold, and the observation time. The same observation is recorded once.
 
+The same poller also reads `audit_events`. `api_abuse` fires when one client has more than two 429s in 60 seconds. `access_denied` fires when one client has more than five 401s or 403s in 60 seconds. Those alerts have no symbol. The client id is in the detail, and a second poll in the same window does not write another row.
+
 Audit rows are append-only for the API database role. A hash chain can be added later. A hash alone is not tamper-proof storage.
 
 ## Rate limits
@@ -88,6 +114,7 @@ Postgres counters, updated atomically. If the limiter cannot be read or written,
 | Alert queries | 20 requests per minute per client |
 | Audit queries | 10 requests per minute per client |
 | Scenario execution | 3 requests per minute per admin |
+| Admin changes | 20 requests per minute |
 
 Over the limit: HTTP 429, `Retry-After` when the window end is known, and a body of `error.code = rate_limit_exceeded` plus `request_id`.
 

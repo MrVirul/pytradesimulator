@@ -94,8 +94,15 @@ off until you ask for them.
 From a new checkout, at the repo root:
 
 ```bash
+copy .env.example .env
 docker compose up -d --build
 docker compose ps -a
+```
+
+`.env.example` is the committed list of settings. `.env` is not committed and is not copied into an image. With no `.env` file, Compose uses the same defaults, so the stack still starts. Change a password or a URL in `.env`, then recreate the container that reads it. Keycloak imports the realm only when that container is created, and it skips a realm that already exists:
+
+```bash
+docker compose up -d --force-recreate keycloak
 ```
 
 `--build` produces `pytradesim`, `pytradesim-subscriber`, and `pytradesim-api`.
@@ -122,24 +129,22 @@ keep its health check. That check looks for listeners on 5001 and 5002.
 Those ports belong to `exchange`. Feed health is the market page and
 `feed_status.logged_on`, not the container status.
 
-Open the UI at `http://localhost:8080`. The Keycloak redirect URIs are
+Open the UI at `http://localhost:8080/ui/login`. The Keycloak redirect URIs are
 `http://localhost:8080/ui/callback` and
 `http://localhost:8080/docs/oauth2-redirect`, so use `localhost` in the
-browser. The realm file is imported when the Keycloak container is created.
-After a change to `secure_api/keycloak/pytradesim-realm.json`, recreate that
-container so the new file is imported:
+browser, not `127.0.0.1`. The login page shows one card per demo user. Each
+card opens Keycloak with that username filled in and asks for the password,
+even if another user was signed in before. Sign out from any page. That ends
+the app session and the Keycloak session, then returns to the login page.
 
-```bash
-docker compose up -d --force-recreate keycloak
-```
-
-Demo passwords are the ones in the Compose file and the realm file.
+Demo passwords below are the defaults in `.env.example`. The login page
+prints them only when `SHOW_DEMO_CREDENTIALS` is not `0`.
 
 | Who | Password | What they can open |
 |---|---|---|
-| `market` | `market` | `/ui/market` |
-| `analyst` | `analyst` | market data and `/ui/alerts` |
-| `admin` | `admin` | alerts, `/ui/audit`, and `/ui/scenarios` |
+| `market` | `market` | Overview and Market |
+| `analyst` | `analyst` | Overview, Market, and Surveillance |
+| `admin` | `admin` | those, plus Security and Scenarios |
 | Keycloak console `admin` | `admin` | `http://localhost:8081` |
 
 The database owner is `pytradesim` / `pytradesim`. The API connects as

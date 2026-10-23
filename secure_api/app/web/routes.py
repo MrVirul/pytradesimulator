@@ -189,16 +189,18 @@ def login_start(request: Request, user: str = ""):
     if not user:
         state, verifier = new_attempt()
         return RedirectResponse(authorize_url(state, verifier), status_code=302)
-    id_token = ""
     session_id = request.cookies.get(SESSION_COOKIE)
     row = load_session(session_id)
+    id_token = row.get("id_token") if row else ""
     if row:
-        id_token = row.get("id_token") or ""
         delete_session(session_id)
-    return RedirectResponse(
-        logout_url(public_api_url() + "/ui/login/resume", user, id_token),
-        status_code=302,
-    )
+    if id_token:
+        return RedirectResponse(
+            logout_url(public_api_url() + "/ui/login/resume", user, id_token),
+            status_code=302,
+        )
+    state, verifier = new_attempt()
+    return RedirectResponse(authorize_url(state, verifier, user), status_code=302)
 
 
 @router.get("/ui/login/resume")
