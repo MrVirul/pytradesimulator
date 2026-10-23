@@ -17,6 +17,13 @@ def test_docs_use_the_live_openapi_document():
     market = document["paths"]["/api/v1/market-data"]["get"]["security"]
     assert {"keycloak": ["openid"]} in market
     assert document["paths"]["/api/v1/health"]["get"].get("security") in (None, [])
+    book = document["components"]["schemas"]["BookPayload"]
+    assert "bids" in book["properties"]
+    assert book["example"]["symbol"] == "BASELINE"
+    scenario = document["paths"]["/api/v1/scenarios"]["post"]
+    body = scenario["requestBody"]["content"]["application/json"]
+    assert body["examples"]["named"]["value"] == {"scenario": "price_movement"}
+    assert "run" in document["components"]["schemas"]["ScenarioResponse"]["properties"]
     docs = client.get("/docs")
     assert docs.status_code == 200
     assert "swagger-ui" in docs.text
