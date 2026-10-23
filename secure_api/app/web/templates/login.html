@@ -1,8 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Sign in{% endblock %}
+{% block message %}
+{% if notice == "signed_out" %}<p class="banner">Signed out.</p>{% endif %}
+{% if error == "expired" %}<p class="banner">Session expired. Sign in again.</p>{% endif %}
+{% if error == "failed" %}<p class="banner">Sign-in failed. Try again.</p>{% endif %}
+{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Sign in</h1>
-  <p><a href="/ui/login/start">Continue</a></p>
-</section>
+<h1>Sign in</h1>
+<div class="grid">
+  {% for user in users %}
+  <section class="card">
+    <h2>{{ user.username }}</h2>
+    <p>Opens {{ user.opens }}.</p>
+    {% if show_passwords %}
+    <p>Username <strong>{{ user.username }}</strong></p>
+    <p>Password <strong>{{ user.password }}</strong></p>
+    {% endif %}
+    <p><a href="/ui/login/start?user={{ user.username }}">Sign in as {{ user.username }}</a></p>
+  </section>
+  {% endfor %}
+</div>
 {% endblock %}

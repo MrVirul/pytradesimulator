@@ -71,7 +71,20 @@ def test_login_page_does_not_store_a_token(client):
     assert "localStorage" not in text
     assert "sessionStorage" not in text
     assert "access_token" not in text
-    assert 'href="/ui/login/start"' in text
+    assert 'href="/ui/login/start?user=market"' in text
+
+
+def test_login_cards_use_the_environment(client, monkeypatch):
+    monkeypatch.setenv("DEMO_ADMIN_PASSWORD", "changeme")
+    monkeypatch.setenv("SHOW_DEMO_CREDENTIALS", "1")
+    shown = client.get("/ui/login")
+    assert "changeme" in shown.text
+    assert "Signed out." in client.get("/ui/login", params={"state": "signed_out"}).text
+    assert "Session expired" in client.get("/ui/login", params={"error": "expired"}).text
+    monkeypatch.setenv("SHOW_DEMO_CREDENTIALS", "0")
+    hidden = client.get("/ui/login")
+    assert "changeme" not in hidden.text
+    assert 'href="/ui/login/start?user=admin"' in hidden.text
 
 
 def test_login_start_fails_closed_without_a_database(client):

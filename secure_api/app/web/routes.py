@@ -20,7 +20,7 @@ from secure_api.app.auth.browser import (
 )
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.oidc import authorize_url, exchange_code, logout_url
-from secure_api.app.config import public_api_url
+from secure_api.app.config import demo_users, public_api_url, show_demo_credentials
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
@@ -154,7 +154,17 @@ def _set_session_cookie(response, session_id):
 def login_page(request: Request):
     if os.environ.get("DATABASE_URL") and load_session(request.cookies.get(SESSION_COOKIE)):
         return RedirectResponse("/ui", status_code=302)
-    return page(request, "login.html", None, {"error": request.query_params.get("error", "")})
+    return page(
+        request,
+        "login.html",
+        None,
+        {
+            "error": request.query_params.get("error", ""),
+            "notice": request.query_params.get("state", ""),
+            "users": demo_users(),
+            "show_passwords": show_demo_credentials(),
+        },
+    )
 
 
 @router.get("/ui/login/start")
