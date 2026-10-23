@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import secrets
+from urllib.parse import urlencode
 
 import httpx
 
@@ -41,13 +42,29 @@ def code_challenge(verifier):
     return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
 
 
-def authorize_url(state, verifier):
+def authorize_url(state, verifier, username=""):
     challenge = code_challenge(verifier)
+    hint = ""
+    if username:
+        hint = "&login_hint={0}".format(username)
     return (
         "{0}/protocol/openid-connect/auth?response_type=code"
         "&client_id={1}&redirect_uri={2}&scope=openid"
         "&state={3}&code_challenge={4}&code_challenge_method=S256"
-    ).format(public_issuer(), client_id(), redirect_uri(), state, challenge)
+        "&prompt=login{5}"
+    ).format(public_issuer(), client_id(), redirect_uri(), state, challenge, hint)
+
+
+def logout_url(redirect_uri, state, id_token=""):
+    """End the Keycloak session, then return to the app with state intact."""
+    params = {
+        "client_id": client_id(),
+        "post_logout_redirect_uri": redirect_uri,
+        "state": state,
+    }
+    if id_token:
+        params["id_token_hint"] = id_token
+    return public_issuer() + "/protocol/openid-connect/logout?" + urlencode(params)
 
 
 def exchange_code(verifier, code):
@@ -64,7 +81,8 @@ def exchange_code(verifier, code):
     )
     if response.status_code != 200:
         raise RuntimeError("token exchange failed")
-    token = response.json().get("access_token")
+    body = response.json()
+    token = body.get("access_token")
     if not token:
         raise RuntimeError("token exchange failed")
-    return token
+    return {"access_token": token, "id_token": body.get("id_token") or ""}

@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from secure_api.app.auth.browser import (
+    DEMO_USERS,
     SESSION_COOKIE,
     delete_session,
     load_session,
@@ -18,7 +19,8 @@ from secure_api.app.auth.browser import (
     take_attempt,
 )
 from secure_api.app.auth.jwt import TokenError, decode_token
-from secure_api.app.auth.oidc import authorize_url, exchange_code
+from secure_api.app.auth.oidc import authorize_url, exchange_code, logout_url
+from secure_api.app.config import public_api_url
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, list_alerts
@@ -68,18 +70,51 @@ def _set_session_cookie(response, session_id):
 
 @router.get("/ui/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(request, "login.html")
+    if os.environ.get("DATABASE_URL") and load_session(request.cookies.get(SESSION_COOKIE)):
+        return RedirectResponse("/ui", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"error": request.query_params.get("error", "")},
+    )
 
 
 @router.get("/ui/login/start")
-def login_start(request: Request):
+def login_start(request: Request, user: str = ""):
     if not os.environ.get("DATABASE_URL"):
         raise HTTPException(
             status_code=503,
             detail=_error("unavailable", "Sign-in is unavailable", request),
         )
-    state, verifier = new_attempt()
-    return RedirectResponse(authorize_url(state, verifier), status_code=302)
+    if user and user not in DEMO_USERS:
+        return RedirectResponse("/ui/login?error=unknown_user", status_code=302)
+    if not user:
+        state, verifier = new_attempt()
+        return RedirectResponse(authorize_url(state, verifier), status_code=302)
+    id_token = ""
+    session_id = request.cookies.get(SESSION_COOKIE)
+    row = load_session(session_id)
+    if row:
+        id_token = row.get("id_token") or ""
+        delete_session(session_id)
+    return RedirectResponse(
+        logout_url(public_api_url() + "/ui/login/resume", user, id_token),
+        status_code=302,
+    )
+
+
+@router.get("/ui/login/resume")
+def login_resume(request: Request, state: str = ""):
+    if not os.environ.get("DATABASE_URL"):
+        raise HTTPException(
+            status_code=503,
+            detail=_error("unavailable", "Sign-in is unavailable", request),
+        )
+    user = state if state in DEMO_USERS else ""
+    if state and state not in DEMO_USERS:
+        return RedirectResponse("/ui/login?error=unknown_user", status_code=302)
+    attempt_state, verifier = new_attempt()
+    return RedirectResponse(authorize_url(attempt_state, verifier, user), status_code=302)
 
 
 @router.get("/ui/callback")
@@ -91,27 +126,27 @@ def callback(request: Request, code: str = "", state: str = ""):
     verifier = take_attempt(state) if state else None
     if not verifier or not code:
         request.state.reason = "invalid_login"
-        raise HTTPException(
-            status_code=400,
-            detail=_error("invalid_login", "Sign-in could not be completed", request),
-        )
+        return RedirectResponse("/ui/login?error=expired", status_code=302)
     try:
-        access_token = exchange_code(verifier, code)
+        exchanged = exchange_code(verifier, code)
+        if isinstance(exchanged, str):
+            access_token, id_token = exchanged, ""
+        else:
+            access_token = exchanged["access_token"]
+            id_token = exchanged.get("id_token") or ""
         claims = decode_token(access_token)
-    except (RuntimeError, TokenError):
+    except (RuntimeError, TokenError, KeyError, TypeError):
         request.state.reason = "invalid_login"
-        raise HTTPException(
-            status_code=401,
-            detail=_error("unauthorized", "Sign-in could not be completed", request),
-        )
+        return RedirectResponse("/ui/login?error=failed", status_code=302)
     if not allows(claims.get("roles"), "market-data:read"):
         request.state.client_id = claims["client_id"]
         request.state.reason = "missing_scope"
-        raise HTTPException(
+        return HTMLResponse(
+            "<h1>This account cannot open the app</h1>"
+            '<p><a href="/ui/login">Back to sign in</a></p>',
             status_code=403,
-            detail=_error("forbidden", "Missing permission", request),
         )
-    session_id, _csrf = save_session(claims, access_token)
+    session_id, _csrf = save_session(claims, access_token, id_token)
     request.state.client_id = claims["client_id"]
     request.state.decision = "allowed"
     request.state.reason = "ok"

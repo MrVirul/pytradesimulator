@@ -1,6 +1,7 @@
 {
   "realm": "pytradesim",
   "enabled": true,
+  "accessTokenLifespan": 900,
   "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": false,
@@ -26,7 +27,8 @@
       ],
       "webOrigins": ["${PUBLIC_API_URL}"],
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${PUBLIC_API_URL}/ui/login/resume##${PUBLIC_API_URL}/ui/login"
       },
       "protocolMappers": [
         {

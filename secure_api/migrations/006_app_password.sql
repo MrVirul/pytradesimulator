@@ -5,6 +5,9 @@
 ALTER ROLE pytradesim_app PASSWORD :'app_password';
 \endif
 
+ALTER TABLE browser_sessions
+    ADD COLUMN IF NOT EXISTS id_token TEXT NOT NULL DEFAULT '';
+
 INSERT INTO schema_migrations (filename)
 VALUES ('006_app_password.sql')
 ON CONFLICT (filename) DO NOTHING;

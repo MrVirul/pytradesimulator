@@ -4,9 +4,23 @@ import json
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from secure_api.app.config import session_minutes
 from secure_api.app.db import connection, lock
 
 SESSION_COOKIE = "pytradesim_session"
+DEMO_USERS = ("market", "analyst", "admin")
+
+
+def session_deadline(claims):
+    """End the browser session when the access token expires, or sooner."""
+    limit = datetime.now(timezone.utc) + timedelta(minutes=session_minutes())
+    exp = claims.get("exp") if claims else None
+    if not exp:
+        return limit
+    token_end = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    if token_end < limit:
+        return token_end
+    return limit
 
 
 def new_attempt():
@@ -42,10 +56,10 @@ def take_attempt(state):
     return row[0]
 
 
-def save_session(claims, access_token):
+def save_session(claims, access_token, id_token=""):
     session_id = secrets.token_urlsafe(32)
     csrf_token = secrets.token_urlsafe(32)
-    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+    expires = session_deadline(claims)
     with lock():
         conn = connection()
         with conn.transaction():
@@ -54,9 +68,9 @@ def save_session(claims, access_token):
                     """
                     INSERT INTO browser_sessions (
                         id, client_id, subject, roles, access_token,
-                        csrf_token, expires_at
+                        id_token, csrf_token, expires_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         session_id,
@@ -64,6 +78,7 @@ def save_session(claims, access_token):
                         claims["sub"],
                         json.dumps(list(claims.get("roles") or [])),
                         access_token,
+                        id_token or "",
                         csrf_token,
                         expires,
                     ),
@@ -80,7 +95,8 @@ def load_session(session_id):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT client_id, subject, roles, access_token, csrf_token, expires_at
+                    SELECT client_id, subject, roles, access_token, csrf_token,
+                           expires_at, id_token
                     FROM browser_sessions
                     WHERE id = %s AND expires_at > now()
                     """,
@@ -99,6 +115,7 @@ def load_session(session_id):
         "access_token": row[3],
         "csrf_token": row[4],
         "expires_at": row[5],
+        "id_token": row[6] or "",
     }
 
 

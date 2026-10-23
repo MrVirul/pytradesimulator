@@ -118,6 +118,48 @@ def test_callback_cookie_hides_the_access_token(client, keys, monkeypatch):
     assert denied.status_code == 403
 
 
+def test_login_start_asks_for_the_named_user(client, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://example")
+    monkeypatch.setenv("PUBLIC_API_URL", "http://localhost:8080")
+    monkeypatch.setattr(
+        "secure_api.app.web.routes.new_attempt", lambda: ("state-1", "verifier-1")
+    )
+    monkeypatch.setattr("secure_api.app.web.routes.load_session", lambda session_id: None)
+    response = client.get("/ui/login/start", params={"user": "market"}, follow_redirects=False)
+    assert response.status_code == 302
+    location = response.headers["location"]
+    assert "/protocol/openid-connect/logout" in location
+    assert "state=market" in location
+    resumed = client.get("/ui/login/resume", params={"state": "market"}, follow_redirects=False)
+    assert resumed.status_code == 302
+    resumed_location = resumed.headers["location"]
+    assert "login_hint=market" in resumed_location
+    assert "prompt=login" in resumed_location
+    unknown = client.get("/ui/login/start", params={"user": "other"}, follow_redirects=False)
+    assert unknown.status_code == 302
+    assert unknown.headers["location"].endswith("/ui/login?error=unknown_user")
+
+
+def test_used_sign_in_returns_to_the_login_page(client, monkeypatch):
+    monkeypatch.setattr("secure_api.app.web.routes.take_attempt", lambda state: None)
+    response = client.get(
+        "/ui/callback",
+        params={"code": "used", "state": "gone"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["location"].endswith("/ui/login?error=expired")
+
+
+def test_session_ends_when_the_token_expires(monkeypatch):
+    monkeypatch.setenv("SESSION_MINUTES", "15")
+    from secure_api.app.auth.browser import session_deadline
+
+    soon = int(time.time()) + 30
+    deadline = session_deadline({"exp": soon})
+    assert int(deadline.timestamp()) <= soon + 1
+
+
 def _verifier_for_state(state):
     import psycopg
 
