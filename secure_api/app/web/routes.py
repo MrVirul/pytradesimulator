@@ -50,7 +50,9 @@ def _error(code, message, request):
 
 
 def _secure_cookie():
-    return os.environ.get("COOKIE_SECURE", "1") != "0"
+    from secure_api.app.config import cookie_secure
+
+    return cookie_secure()
 
 
 def _set_session_cookie(response, session_id):

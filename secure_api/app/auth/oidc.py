@@ -2,34 +2,34 @@
 
 import base64
 import hashlib
-import os
 import secrets
 
 import httpx
 
+from secure_api.app.config import (
+    keycloak_client_id,
+    keycloak_internal_url,
+    keycloak_realm,
+    keycloak_redirect_uri,
+    public_keycloak_url,
+)
+
 
 def public_issuer():
-    base = os.environ.get("KEYCLOAK_PUBLIC_URL", "http://localhost:8081").rstrip("/")
-    realm = os.environ.get("KEYCLOAK_REALM", "pytradesim")
-    return "{0}/realms/{1}".format(base, realm)
+    return "{0}/realms/{1}".format(public_keycloak_url(), keycloak_realm())
 
 
 def token_endpoint():
-    base = os.environ.get("KEYCLOAK_INTERNAL_URL", "").rstrip("/")
-    realm = os.environ.get("KEYCLOAK_REALM", "pytradesim")
-    if not base:
-        base = os.environ.get("KEYCLOAK_PUBLIC_URL", "http://localhost:8081").rstrip("/")
-    return "{0}/realms/{1}/protocol/openid-connect/token".format(base, realm)
+    base = keycloak_internal_url() or public_keycloak_url()
+    return "{0}/realms/{1}/protocol/openid-connect/token".format(base, keycloak_realm())
 
 
 def client_id():
-    return os.environ.get("KEYCLOAK_CLIENT_ID", "pytradesim-ui")
+    return keycloak_client_id()
 
 
 def redirect_uri():
-    return os.environ.get(
-        "KEYCLOAK_REDIRECT_URI", "http://localhost:8080/ui/callback"
-    )
+    return keycloak_redirect_uri()
 
 
 def new_verifier():

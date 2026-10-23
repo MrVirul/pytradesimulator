@@ -23,8 +23,10 @@ class CheckFailed(Exception):
 
 
 def client_credentials_token():
-    client_id = os.environ.get("KEYCLOAK_SCENARIO_CLIENT_ID", "")
-    secret = os.environ.get("KEYCLOAK_SCENARIO_CLIENT_SECRET", "")
+    from secure_api.app.config import scenario_client_id, scenario_client_secret
+
+    client_id = scenario_client_id()
+    secret = scenario_client_secret()
     if not client_id or not secret:
         raise CheckFailed("unavailable")
     try:

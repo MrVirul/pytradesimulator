@@ -52,6 +52,22 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M6.3** Legacy order-book tests still pass unchanged. Status: `done`. Exit: `pytest tests -v` or `docker run --rm pytradesim test` is green.
 - **M6.4** Deployment and limitation notes brought in line with the running Compose file. Status: `done`. Exit: a new checkout can follow the doc and reach the definition of done in `docs/ARCHITECTURE.md`.
 
+## Milestone 7 — UI, auth, and dashboards
+
+- **M7.1** One `.env` for Compose, Keycloak, and the API. Status: `done`. Exit: with no `.env` the stack starts as it does today, and a recreated Keycloak honors `DEMO_ADMIN_PASSWORD`.
+- **M7.2** Sign-in that can switch users. Status: `todo`. Exit: a second sign-in started for `market` asks for a password and the session is `market`.
+- **M7.3** Sign-out through Keycloak. Status: `todo`. Exit: after sign-out, the next sign-in asks for a password.
+- **M7.4** HTMX-aware session, limit, and error responses. Status: `todo`. Exit: an expired fragment redirects, and a 429 fragment keeps polling.
+- **M7.5** Shared layout and stylesheet. Status: `todo`. Exit: every page extends `base.html` and the nav matches the role.
+- **M7.6** Login page with demo users. Status: `todo`. Exit: cards and passwords come from the environment.
+- **M7.7** Overview dashboard. Status: `todo`. Exit: each role sees its own permissions and usage.
+- **M7.8** Market console. Status: `todo`. Exit: live and stale books render with depth, spread, and freshness.
+- **M7.9** Surveillance console. Status: `todo`. Exit: an analyst can open an alert, and only an admin can edit a rule.
+- **M7.10** Security console. Status: `todo`. Exit: access and rate-limit scenarios show up in the counts.
+- **M7.11** Security alerts from audit rows. Status: `todo`. Exit: repeated 429s produce one `api_abuse` alert.
+- **M7.12** Scenario lab redesign. Status: `todo`. Exit: a run updates in place and links to its alert or audit row.
+- **M7.13** Docs and evidence. Status: `todo`. Exit: a new checkout can copy `.env.example` and sign in as each demo user.
+
 ## Baseline results
 
 Recorded 2026-10-22.
@@ -173,3 +189,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-22** — M6.2. Timed `GET /api/v1/market-data/BASELINE` from the host at concurrency 8, 160 samples after 8 warmup calls. p50 46.34 ms, p95 57.60 ms, p99 64.49 ms. The timer is the HTTP call, not the book's age. All 160 responses were 200. The temporary rate-limit raise for that client was restored to 1 per 60 seconds.
 - **2026-10-22** — M6.3. `docker run --rm pytradesim test` passed 22 tests in 0.12s on Python 3.9.25 and pytest 5.4.1. The run includes the order-book cases in `tests/test_orderbook.py`. The legacy test files were left as they are.
 - **2026-10-22** — M6.4. `DOCKER.md` now starts the secure layer with `docker compose up -d --build`, and `docs/ARCHITECTURE.md` states the checks that command reaches. The running stack matches that description: exchange and postgres healthy, migrate exited 0, API on port 8080, Keycloak on 8081, FIX and Postgres unpublished. `http://localhost:8080/ui/login` and the `pytradesim` realm both returned 200. The subscriber log says `MDCLIENT3 logged on` while its container stays unhealthy. A fresh checkout was not rebuilt.
+- **2026-10-23** — M7.1. Compose reads `.env.example` values, with the same defaults when `.env` is absent. Keycloak substitutes `${DEMO_ADMIN_PASSWORD}` on import. A recreated realm accepted `changeme` for `admin` and rejected `admin`, then the container was recreated on the default password. `006_app_password.sql` ran `ALTER ROLE`. Checked with `pytest secure_api/tests/test_config.py` (passed) and `docker compose config`.

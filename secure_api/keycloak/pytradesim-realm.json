@@ -21,10 +21,10 @@
       "directAccessGrantsEnabled": false,
       "protocol": "openid-connect",
       "redirectUris": [
-        "http://localhost:8080/ui/callback",
-        "http://localhost:8080/docs/oauth2-redirect"
+        "${PUBLIC_API_URL}/ui/callback",
+        "${PUBLIC_API_URL}/docs/oauth2-redirect"
       ],
-      "webOrigins": ["http://localhost:8080"],
+      "webOrigins": ["${PUBLIC_API_URL}"],
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
@@ -45,7 +45,7 @@
       "clientId": "pytradesim-scenario",
       "enabled": true,
       "publicClient": false,
-      "secret": "pytradesim-scenario",
+      "secret": "${KEYCLOAK_SCENARIO_CLIENT_SECRET}",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
@@ -73,7 +73,7 @@
       "emailVerified": true,
       "firstName": "Market",
       "lastName": "Client",
-      "credentials": [{"type": "password", "value": "market", "temporary": false}],
+      "credentials": [{"type": "password", "value": "${DEMO_MARKET_PASSWORD}", "temporary": false}],
       "realmRoles": ["market_data_client"]
     },
     {
@@ -83,7 +83,7 @@
       "emailVerified": true,
       "firstName": "Analyst",
       "lastName": "Client",
-      "credentials": [{"type": "password", "value": "analyst", "temporary": false}],
+      "credentials": [{"type": "password", "value": "${DEMO_ANALYST_PASSWORD}", "temporary": false}],
       "realmRoles": ["surveillance_analyst"]
     },
     {
@@ -93,7 +93,7 @@
       "emailVerified": true,
       "firstName": "Admin",
       "lastName": "Client",
-      "credentials": [{"type": "password", "value": "admin", "temporary": false}],
+      "credentials": [{"type": "password", "value": "${DEMO_ADMIN_PASSWORD}", "temporary": false}],
       "realmRoles": ["security_admin"]
     },
     {

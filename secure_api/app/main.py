@@ -6,12 +6,24 @@ import threading
 import time
 import uuid
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 
 from secure_api.app.auth import oidc
+from secure_api.app.config import keycloak_client_id
+from secure_api.app.models.payloads import (
+    AlertListPayload,
+    AuditListPayload,
+    BookPayload,
+    ErrorPayload,
+    HealthPayload,
+    MarketListPayload,
+    ScenarioRequest,
+    ScenarioResponse,
+    TradeListPayload,
+)
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
@@ -27,7 +39,7 @@ app = FastAPI(
     title="pytradesim secure API",
     version="1",
     swagger_ui_init_oauth={
-        "clientId": os.environ.get("KEYCLOAK_CLIENT_ID", "pytradesim-ui"),
+        "clientId": keycloak_client_id(),
         "scopes": "openid",
         "usePkceWithAuthorizationCodeGrant": True,
     },
@@ -162,19 +174,46 @@ async def audit_request(request: Request, call_next):
     return response
 
 
-@app.get("/api/v1/health")
+def _denied(status, description):
+    return {"model": ErrorPayload, "description": description}
+
+
+_AUTH_ERRORS = {
+    401: _denied(401, "Missing or invalid token"),
+    403: _denied(403, "Missing permission"),
+    429: _denied(429, "Rate limit exceeded"),
+    503: _denied(503, "Rate limiter unavailable"),
+}
+
+
+def _errors(extra=None):
+    merged = dict(_AUTH_ERRORS)
+    if extra:
+        merged.update(extra)
+    return merged
+
+
+@app.get("/api/v1/health", response_model=HealthPayload)
 def health():
     return {"status": "ok"}
 
 
-@app.get("/api/v1/market-data")
+@app.get(
+    "/api/v1/market-data",
+    response_model=MarketListPayload,
+    responses=_AUTH_ERRORS,
+)
 def market_data(_claims=Depends(require("market-data:read"))):
     if not os.environ.get("DATABASE_URL"):
         return {"symbols": []}
     return {"symbols": list_symbols()}
 
 
-@app.get("/api/v1/market-data/{symbol}")
+@app.get(
+    "/api/v1/market-data/{symbol}",
+    response_model=BookPayload,
+    responses=_errors({404: _denied(404, "Unknown symbol")}),
+)
 def market_data_symbol(symbol: str, request: Request, _claims=Depends(require("market-data:read"))):
     found = get_symbol(symbol)
     if found is None:
@@ -185,7 +224,11 @@ def market_data_symbol(symbol: str, request: Request, _claims=Depends(require("m
     return found
 
 
-@app.get("/api/v1/market-data/{symbol}/trades")
+@app.get(
+    "/api/v1/market-data/{symbol}/trades",
+    response_model=TradeListPayload,
+    responses=_errors({400: _denied(400, "Invalid symbol")}),
+)
 def market_data_trades(
     symbol: str, request: Request, limit: int = 20, _claims=Depends(require("market-data:read"))
 ):
@@ -198,7 +241,11 @@ def market_data_trades(
     return {"symbol": symbol, "trades": found}
 
 
-@app.get("/api/v1/alerts")
+@app.get(
+    "/api/v1/alerts",
+    response_model=AlertListPayload,
+    responses=_errors({400: _denied(400, "Invalid filter")}),
+)
 def alerts(
     request: Request,
     symbol: str = "",
@@ -217,7 +264,11 @@ def alerts(
     return {"alerts": list_alerts(symbol, severity, rule_name)}
 
 
-@app.get("/api/v1/audit-events")
+@app.get(
+    "/api/v1/audit-events",
+    response_model=AuditListPayload,
+    responses=_errors({400: _denied(400, "Invalid filter")}),
+)
 def audit_events(
     request: Request,
     request_id: str = "",
@@ -252,14 +303,30 @@ def audit_events(
     }
 
 
-@app.post("/api/v1/scenarios")
-async def start_scenario(request: Request, claims=Depends(require("scenarios:run"))):
+@app.post(
+    "/api/v1/scenarios",
+    response_model=ScenarioResponse,
+    responses=_errors(
+        {
+            400: _denied(400, "Unknown scenario or extra order field"),
+            503: _denied(503, "Scenario runs are unavailable"),
+        }
+    ),
+)
+async def start_scenario(
+    request: Request,
+    payload: ScenarioRequest = Body(
+        openapi_examples={
+            "named": {
+                "summary": "Named scenario",
+                "value": {"scenario": "price_movement"},
+            }
+        }
+    ),
+    claims=Depends(require("scenarios:run")),
+):
     try:
-        payload = await request.json()
-    except Exception:
-        payload = None
-    try:
-        name = parse_request(payload)
+        name = parse_request(payload.model_dump())
     except ScenarioError as error:
         request.state.decision = "denied"
         request.state.reason = error.reason
