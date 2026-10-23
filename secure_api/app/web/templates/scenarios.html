@@ -2,21 +2,45 @@
 {% block title %}Scenarios{% endblock %}
 {% block content %}
 <h1>Scenario lab</h1>
-<p class="facts">Rate limit {{ policy.requests_allowed }} requests per {{ policy.window_seconds }} seconds.</p>
+<p class="facts">Rate limit {{ policy.requests_allowed }} requests per {{ policy.window_seconds }} seconds.{% if remaining is not none %} Remaining {{ remaining }}.{% endif %}</p>
+<div class="grid">
 {% for scenario in scenarios %}
-<section class="book">
+<section class="card">
   <h2>{{ scenario.name }}</h2>
+  <p>{{ scenario.about }}</p>
+  <p>Expected {{ scenario.expects }}.</p>
+  {% if scenario.sends_order %}
+  <ul>
+    {% for line in scenario.orders %}
+    <li>{{ line }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Does not send an order.</p>
+  {% endif %}
+  <p>Last status {{ last_status.get(scenario.name, "not run") }}</p>
   {% if scenario.runnable %}
   <form method="post" action="/ui/scenarios">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="scenario" value="{{ scenario.name }}">
     <button type="submit">Run</button>
   </form>
-  {% if not scenario.orders %}<p>Calls the API. It does not send an order.</p>{% endif %}
-  {% else %}
-  <p>Listed for the lab. It does not send an order.</p>
   {% endif %}
 </section>
 {% endfor %}
+</div>
 {% if run %}{% include "scenario_run.html" %}{% endif %}
+<section class="card">
+  <h2>Run history</h2>
+  <ul>
+    {% for item in history %}
+    <li>
+      {{ item.created_at }} {{ item.scenario }} {{ item.status }}
+      {% if item.request_id %}<a href="/ui/audit?request_id={{ item.request_id }}">{{ item.request_id }}</a>{% endif %}
+    </li>
+    {% else %}
+    <li>No runs yet.</li>
+    {% endfor %}
+  </ul>
+</section>
 {% endblock %}

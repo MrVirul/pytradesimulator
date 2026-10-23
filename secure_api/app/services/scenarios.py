@@ -13,15 +13,44 @@ LAB_SCENARIOS = (
 )
 
 
+_EXPECTS = {
+    "price_movement": "price_movement on PRICE",
+    "spread_widening": "spread_widening on SPREAD",
+    "volume": "volume on VOLUME",
+    "unauthorized_access": "a 403 on the audit log",
+    "rate_limit_abuse": "a 429 on a market read",
+}
+
+_ABOUT = {
+    "price_movement": "Prints a trade above the price rule.",
+    "spread_widening": "Rests a wide market on SPREAD.",
+    "volume": "Fills enough size to cross the volume rule.",
+    "unauthorized_access": "A market-data client reads the audit log.",
+    "rate_limit_abuse": "Reads the book again inside the same limit window.",
+}
+
+
 def scenario_choices():
-    return [
-        {
-            "name": name,
-            "runnable": name in SCENARIOS or name in ACCESS_SCENARIOS,
-            "orders": name in SCENARIOS,
-        }
-        for name in LAB_SCENARIOS
-    ]
+    cards = []
+    for name in LAB_SCENARIOS:
+        lines = []
+        if name in SCENARIOS:
+            _symbol, orders = orders_for(name)
+            for order in orders:
+                lines.append(
+                    "{0} {1} @ {2}".format(order["side"], order["quantity"], order["price"])
+                )
+        cards.append(
+            {
+                "name": name,
+                "runnable": name in SCENARIOS or name in ACCESS_SCENARIOS,
+                "orders": lines,
+                "sends_order": name in SCENARIOS,
+                "about": _ABOUT[name],
+                "expects": _EXPECTS[name],
+            }
+        )
+    return cards
 
 
 def _request_id(detail):
@@ -89,6 +118,33 @@ def scenario_policy():
 def enqueue(name, client_id):
     symbol, _orders = orders_for(name)
     return _insert(name, client_id, "pending", "", symbol)
+
+
+def recent_runs(limit=12):
+    with lock():
+        conn = connection()
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, scenario_name, status, detail, created_at
+                    FROM scenario_runs
+                    ORDER BY id DESC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                rows = cursor.fetchall()
+    return [
+        {
+            "id": row[0],
+            "scenario": row[1],
+            "status": row[2],
+            "request_id": _request_id(row[3]),
+            "created_at": row[4].isoformat(),
+        }
+        for row in rows
+    ]
 
 
 def get_run(run_id):

@@ -36,6 +36,7 @@ from secure_api.app.services.alerts import (
 from secure_api.app.services.audit import list_events, search_error, security_metrics
 from secure_api.app.services.scenarios import (
     get_run,
+    recent_runs,
     scenario_choices,
     scenario_policy,
     start_named,
@@ -559,11 +560,23 @@ def change_rule(
 
 def _scenario_page_context(row, run_id):
     run = get_run(run_id) if run_id else None
+    history = recent_runs()
+    last = {}
+    for item in history:
+        if item["scenario"] not in last:
+            last[item["scenario"]] = item["status"]
+    remaining = None
+    for item in snapshot(row.get("client_id"), row.get("roles")):
+        if item["category"] == "scenario":
+            remaining = item["allowed"] - item["used"]
     return {
         "scenarios": scenario_choices(),
         "policy": scenario_policy(),
         "csrf_token": row["csrf_token"],
         "run": run,
+        "history": history,
+        "last_status": last,
+        "remaining": remaining,
     }
 
 
