@@ -8,6 +8,7 @@ ROLE_PERMISSIONS = {
             "market-data:read",
             "alerts:read",
             "audit:read",
+            "operations:read",
             "scenarios:run",
             "rules:write",
         ]
@@ -18,6 +19,7 @@ RATE_CATEGORY = {
     "market-data:read": "market_data",
     "alerts:read": "alerts",
     "audit:read": "audit",
+    "operations:read": "audit",
     "scenarios:run": "scenario",
     "rules:write": "admin",
 }

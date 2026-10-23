@@ -1,7 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Security{% endblock %}
 {% block content %}
+<h1>Security</h1>
+<p>
+  <a href="/ui/security?minutes=15">15 minutes</a>
+  <a href="/ui/security?minutes=60">60 minutes</a>
+</p>
+<div class="grid">
+  <section class="card">
+    <h2>Last {{ report.minutes }} minutes</h2>
+    <p>Requests {{ report.requests }}</p>
+    <p>Allowed {{ report.allowed }}</p>
+    <p>Denied {{ report.denied }}</p>
+    <p>401 {{ report.status_401 }}</p>
+    <p>403 {{ report.status_403 }}</p>
+    <p>429 {{ report.status_429 }}</p>
+  </section>
+  <section class="card">
+    <h2>Latency</h2>
+    <p>p50 {{ report.p50 if report.p50 is not none else "—" }} ms</p>
+    <p>p95 {{ report.p95 if report.p95 is not none else "—" }} ms</p>
+    <p>p99 {{ report.p99 if report.p99 is not none else "—" }} ms</p>
+  </section>
+</div>
 <section class="card">
-  <h1>Security</h1>
+  <h2>Requests per minute</h2>
+  {% for bar in report.per_minute %}
+  <div class="level"><span>{{ bar.minute }}</span><span class="bar" style="width: {{ bar.width }}%"></span><span>{{ bar.count }}</span></div>
+  {% else %}<p>No requests in this window.</p>{% endfor %}
 </section>
+<section class="card">
+  <h2>Top clients</h2>
+  <ul>
+    {% for client in report.clients %}
+    <li>{{ client.client_id }} {{ client.count }}</li>
+    {% endfor %}
+  </ul>
+</section>
+<section class="card">
+  <h2>Policies</h2>
+  <ul>
+    {% for policy in report.policies %}
+    <li>{{ policy.subject }} {{ policy.category }}: {{ policy.used }} of {{ policy.allowed }}</li>
+    {% endfor %}
+  </ul>
+</section>
+<h2>Audit search</h2>
+{% include "audit_filters.html" %}
+{% include "audit_rows.html" %}
 {% endblock %}

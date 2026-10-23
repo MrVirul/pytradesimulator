@@ -16,7 +16,7 @@
       {% for event in events %}
       <tr>
         <td>{{ event.recorded_at }}</td>
-        <td>{{ event.request_id }}</td>
+        <td><a href="/ui/audit?request_id={{ event.request_id }}">{{ event.request_id }}</a></td>
         <td>{{ event.client_id }}</td>
         <td>{{ event.action }}</td>
         <td>{{ event.decision }}</td>

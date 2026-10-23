@@ -1,7 +1,7 @@
 """Append-only audit writes. Callers must not pass tokens or cookies."""
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from secure_api.app.db import connection, lock
 
@@ -137,3 +137,101 @@ def list_events(
         }
         for row in rows
     ]
+
+
+def _number(value):
+    if value is None:
+        return None
+    return float(value)
+
+
+def security_metrics(minutes):
+    window = 60 if int(minutes) == 60 else 15
+    since = datetime.now(timezone.utc) - timedelta(minutes=window)
+    with lock():
+        conn = connection()
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT count(*),
+                           count(*) FILTER (WHERE decision = 'allowed'),
+                           count(*) FILTER (WHERE decision = 'denied'),
+                           count(*) FILTER (WHERE status_code = 401),
+                           count(*) FILTER (WHERE status_code = 403),
+                           count(*) FILTER (WHERE status_code = 429),
+                           percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms),
+                           percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms),
+                           percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)
+                    FROM audit_events
+                    WHERE recorded_at >= %s
+                    """,
+                    (since,),
+                )
+                totals = cursor.fetchone()
+                cursor.execute(
+                    """
+                    SELECT date_trunc('minute', recorded_at), count(*)
+                    FROM audit_events
+                    WHERE recorded_at >= %s
+                    GROUP BY 1
+                    ORDER BY 1
+                    """,
+                    (since,),
+                )
+                minutes_rows = cursor.fetchall()
+                cursor.execute(
+                    """
+                    SELECT client_id, count(*)
+                    FROM audit_events
+                    WHERE recorded_at >= %s
+                    GROUP BY client_id
+                    ORDER BY count(*) DESC
+                    LIMIT 5
+                    """,
+                    (since,),
+                )
+                clients = cursor.fetchall()
+                cursor.execute(
+                    """
+                    SELECT p.subject, p.category, p.requests_allowed,
+                           c.request_count, c.window_start, p.window_seconds
+                    FROM rate_limit_policies AS p
+                    LEFT JOIN rate_limit_counters AS c
+                      ON c.subject = p.subject AND c.category = p.category
+                    ORDER BY p.category, p.subject
+                    """
+                )
+                policies = cursor.fetchall()
+    peak = max([row[1] for row in minutes_rows] or [1])
+    return {
+        "minutes": window,
+        "requests": int(totals[0]),
+        "allowed": int(totals[1]),
+        "denied": int(totals[2]),
+        "status_401": int(totals[3]),
+        "status_403": int(totals[4]),
+        "status_429": int(totals[5]),
+        "p50": _number(totals[6]),
+        "p95": _number(totals[7]),
+        "p99": _number(totals[8]),
+        "per_minute": [
+            {
+                "minute": row[0].isoformat(),
+                "count": int(row[1]),
+                "width": int(row[1] * 100 / peak),
+            }
+            for row in minutes_rows
+        ],
+        "clients": [{"client_id": row[0], "count": int(row[1])} for row in clients],
+        "policies": [
+            {
+                "subject": row[0],
+                "category": row[1],
+                "allowed": int(row[2]),
+                "used": 0 if row[3] is None else int(row[3]),
+                "window_seconds": int(row[5]),
+            }
+            for row in policies
+        ],
+    }

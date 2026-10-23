@@ -21,6 +21,7 @@ from secure_api.app.models.payloads import (
     ErrorPayload,
     HealthPayload,
     MarketListPayload,
+    MetricsPayload,
     ScenarioRequest,
     ScenarioResponse,
     TradeListPayload,
@@ -29,7 +30,7 @@ from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.policies import allows
 from secure_api.app.auth.rate_limit import consume
 from secure_api.app.services.alerts import filter_error, get_alert, list_alerts
-from secure_api.app.services.audit import list_events, search_error, write_event
+from secure_api.app.services.audit import list_events, search_error, security_metrics, write_event
 from secure_api.app.services.market_data import get_symbol, list_symbols, recent_trades
 from secure_api.app.services.scenarios import start_named
 from secure_api.harness.scenarios import ScenarioError, parse_request
@@ -287,6 +288,20 @@ def alert_by_id(alert_id: int, request: Request, _claims=Depends(require("alerts
             detail=error_body("not_found", "Alert not found", request_id_of(request)),
         )
     return found
+
+
+@app.get(
+    "/api/v1/metrics",
+    response_model=MetricsPayload,
+    responses=_errors({403: _denied(403, "Missing permission")}),
+)
+def metrics(request: Request, minutes: int = 15, _claims=Depends(require("operations:read"))):
+    if not os.environ.get("DATABASE_URL"):
+        raise HTTPException(
+            status_code=503,
+            detail=error_body("unavailable", "Metrics are unavailable", request_id_of(request)),
+        )
+    return security_metrics(minutes)
 
 
 @app.get(

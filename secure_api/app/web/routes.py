@@ -33,7 +33,7 @@ from secure_api.app.services.alerts import (
     timeline,
     update_rule,
 )
-from secure_api.app.services.audit import list_events, search_error
+from secure_api.app.services.audit import list_events, search_error, security_metrics
 from secure_api.app.services.scenarios import (
     get_run,
     scenario_choices,
@@ -674,11 +674,14 @@ def _audit_context(request, request_id, client_id, action, decision, status_code
 
 
 @router.get("/ui/security", response_class=HTMLResponse)
-def security_page(request: Request):
+def security_page(request: Request, minutes: int = 15):
     blocked = _guard(request, "audit:read")
     if blocked is not None:
         return blocked
-    return page(request, "security.html", request.state.session_row, {})
+    context = _audit_context(request, "", "", "", "", "", "", "")
+    context["filter_client"] = context.pop("client_id")
+    context["report"] = security_metrics(minutes)
+    return page(request, "security.html", request.state.session_row, context)
 
 
 @router.get("/ui/audit", response_class=HTMLResponse)

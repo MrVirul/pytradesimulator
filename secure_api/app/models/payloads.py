@@ -214,6 +214,41 @@ class ScenarioRunPayload(BaseModel):
     request_id: str
 
 
+class MinuteBar(BaseModel):
+    minute: str
+    count: int
+    width: int
+
+
+class ClientCount(BaseModel):
+    client_id: str
+    count: int
+
+
+class PolicyUsage(BaseModel):
+    subject: str
+    category: str
+    allowed: int
+    used: int
+    window_seconds: int
+
+
+class MetricsPayload(BaseModel):
+    minutes: int
+    requests: int
+    allowed: int
+    denied: int
+    status_401: int
+    status_403: int
+    status_429: int
+    p50: Optional[float] = None
+    p95: Optional[float] = None
+    p99: Optional[float] = None
+    per_minute: List[MinuteBar]
+    clients: List[ClientCount]
+    policies: List[PolicyUsage]
+
+
 class ScenarioResponse(BaseModel):
     run: ScenarioRunPayload
 
