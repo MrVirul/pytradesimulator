@@ -1,42 +1,52 @@
 <section
   id="market-book"
   class="book"
-  hx-get="/ui/market-data/{{ symbol }}/book"
-  hx-trigger="load, every 3s [document.visibilityState === 'visible']"
+  hx-get="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}"
+  {% if not paused %}hx-trigger="load, every 3s [document.visibilityState === 'visible']"{% endif %}
   hx-swap="outerHTML">
   <header>
     <h2>{{ symbol }}</h2>
     <p class="status status-{{ status }}">Status {{ status }}</p>
+    {% if paused %}<p>Paused</p>{% endif %}
   </header>
+  <p>
+    {% if paused %}
+    <a href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Resume</a>
+    {% else %}
+    <a href="/ui/market-data/{{ symbol }}/book?paused=1" hx-get="/ui/market-data/{{ symbol }}/book?paused=1" hx-target="#market-book" hx-swap="outerHTML">Pause</a>
+    {% endif %}
+    <a href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Refresh</a>
+  </p>
   <dl class="facts">
+    <div><dt>Best bid</dt><dd>{{ best_bid if best_bid is not none else "—" }}</dd></div>
+    <div><dt>Best ask</dt><dd>{{ best_ask if best_ask is not none else "—" }}</dd></div>
+    <div><dt>Spread</dt><dd>{{ spread if spread is not none else "—" }}</dd></div>
+    <div><dt>Last trade</dt><dd>{% if last_trade %}{{ last_trade.price }} × {{ last_trade.quantity }}{% else %}—{% endif %}</dd></div>
     <div><dt>Received</dt><dd>{{ received_at or "—" }}</dd></div>
     <div><dt>Age</dt><dd>{% if age_seconds is not none %}{{ age_seconds }}s{% else %}—{% endif %}</dd></div>
     <div><dt>Sequence</dt><dd>{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</dd></div>
     <div><dt>FIX session</dt><dd>{% if logged_on %}logged on{% else %}logged off{% endif %}</dd></div>
   </dl>
-  <div class="sides">
-    <table>
-      <caption>Bids</caption>
-      <thead><tr><th>Price</th><th>Quantity</th></tr></thead>
-      <tbody>
-        {% for level in bids %}
-        <tr><td>{{ level.price }}</td><td>{{ level.quantity }}</td></tr>
-        {% else %}
-        <tr><td colspan="2">No bids</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <table>
-      <caption>Asks</caption>
-      <thead><tr><th>Price</th><th>Quantity</th></tr></thead>
-      <tbody>
-        {% for level in asks %}
-        <tr><td>{{ level.price }}</td><td>{{ level.quantity }}</td></tr>
-        {% else %}
-        <tr><td colspan="2">No asks</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <p>The exchange sends no event time. Age is measured from the time this service stored the book.</p>
+  {% set bid_max = (bids | map(attribute='quantity') | max) if bids else 1 %}
+  {% set ask_max = (asks | map(attribute='quantity') | max) if asks else 1 %}
+  <div class="ladder">
+    <h3>Bids</h3>
+    {% for level in bids %}
+    <div class="level">
+      <span>{{ level.price }}</span>
+      <span class="bar" style="width: {{ (level.quantity / bid_max * 100) | round }}%"></span>
+      <span>{{ level.quantity }}</span>
+    </div>
+    {% else %}<p>No bids</p>{% endfor %}
+    <h3 class="ask">Asks</h3>
+    {% for level in asks %}
+    <div class="level ask">
+      <span>{{ level.price }}</span>
+      <span class="bar" style="width: {{ (level.quantity / ask_max * 100) | round }}%"></span>
+      <span>{{ level.quantity }}</span>
+    </div>
+    {% else %}<p>No asks</p>{% endfor %}
   </div>
   <table>
     <caption>Recent trades</caption>

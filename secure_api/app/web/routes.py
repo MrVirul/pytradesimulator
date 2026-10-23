@@ -364,17 +364,32 @@ def _book_context(symbol):
             "asks": [],
             "trades": [],
             "logged_on": health["logged_on"],
+            "best_bid": None,
+            "best_ask": None,
+            "spread": None,
+            "last_trade": None,
         }
+    bids = book["bids"]
+    asks = book["asks"]
+    best_bid = _best(bids, max)
+    best_ask = _best(asks, min)
+    spread = None
+    if best_bid is not None and best_ask is not None:
+        spread = best_ask - best_bid
     return {
         "symbol": book["symbol"],
         "status": book["status"],
         "received_at": book["received_at"],
         "age_seconds": _age_seconds(book["received_at"]),
         "ingest_sequence": book["ingest_sequence"],
-        "bids": book["bids"],
-        "asks": book["asks"],
+        "bids": bids,
+        "asks": asks,
         "trades": trades,
         "logged_on": health["logged_on"],
+        "best_bid": best_bid,
+        "best_ask": best_ask,
+        "spread": spread,
+        "last_trade": trades[0] if trades else None,
     }
 
 
@@ -411,11 +426,14 @@ def market_page(request: Request, symbol: str = "BASELINE"):
             status_code=400,
             detail=_error("invalid_symbol", "Invalid symbol", request),
         )
-    choices = [item["symbol"] for item in list_symbols()]
+    items = list_symbols()
+    choices = [item["symbol"] for item in items]
     if symbol not in choices:
         choices.append(symbol)
+        items.append({"symbol": symbol, "status": "uninitialized"})
     context = _book_context(symbol)
     context["symbol_choices"] = choices
+    context["symbols"] = items
     return page(request, "market.html", request.state.session_row, context)
 
 
@@ -429,7 +447,9 @@ def market_book(request: Request, symbol: str):
             status_code=400,
             detail=_error("invalid_symbol", "Invalid symbol", request),
         )
-    return templates.TemplateResponse(request, "book.html", _book_context(symbol))
+    context = _book_context(symbol)
+    context["paused"] = request.query_params.get("paused") == "1"
+    return templates.TemplateResponse(request, "book.html", context)
 
 
 def _alert_filters(symbol, severity, rule_name, request):

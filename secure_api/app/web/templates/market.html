@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ symbol }}{% endblock %}
 {% block content %}
-<h1>{{ symbol }}</h1>
+<h1>Market</h1>
+<ul class="symbol-list">
+  {% for item in symbols %}
+  <li><a href="/ui/market?symbol={{ item.symbol }}">{{ item.symbol }}</a> <span class="pill {{ item.status }}">{{ item.status }}</span></li>
+  {% endfor %}
+</ul>
 <form class="symbol-form" method="get" action="/ui/market">
   <label for="symbol">Symbol</label>
   <select id="symbol" name="symbol">
