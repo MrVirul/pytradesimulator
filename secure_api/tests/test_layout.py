@@ -22,6 +22,15 @@ def _session(role):
 
 def _open(monkeypatch, role):
     monkeypatch.setattr(
+        "secure_api.app.web.routes._overview",
+        lambda row: {
+            "permissions": [],
+            "feed": {"logged_on": False, "last_message_at": None},
+            "symbols": [],
+            "limits": [],
+        },
+    )
+    monkeypatch.setattr(
         "secure_api.app.web.routes.load_session",
         lambda session_id: _session(role),
     )

@@ -21,8 +21,8 @@ from secure_api.app.auth.browser import (
 from secure_api.app.auth.jwt import TokenError, decode_token
 from secure_api.app.auth.oidc import authorize_url, exchange_code, logout_url
 from secure_api.app.config import demo_users, public_api_url, show_demo_credentials
-from secure_api.app.auth.policies import allows
-from secure_api.app.auth.rate_limit import consume
+from secure_api.app.auth.policies import ROLE_PERMISSIONS, allows
+from secure_api.app.auth.rate_limit import consume, snapshot
 from secure_api.app.services.alerts import filter_error, list_alerts
 from secure_api.app.services.audit import list_events, search_error
 from secure_api.app.services.scenarios import (
@@ -269,12 +269,48 @@ def _open_session(request, permission="market-data:read"):
     return row
 
 
+def _permissions(roles):
+    granted = []
+    for role in roles or []:
+        for permission in sorted(ROLE_PERMISSIONS.get(role, ())):
+            if permission not in granted:
+                granted.append(permission)
+    return granted
+
+
+def _best(levels, pick):
+    if not levels:
+        return None
+    return pick(level["price"] for level in levels)
+
+
+def _overview(row):
+    tiles = []
+    for item in list_symbols():
+        book = get_symbol(item["symbol"]) or {}
+        tiles.append(
+            {
+                "symbol": item["symbol"],
+                "status": item["status"],
+                "age_seconds": _age_seconds(item["received_at"]),
+                "best_bid": _best(book.get("bids") or [], max),
+                "best_ask": _best(book.get("asks") or [], min),
+            }
+        )
+    return {
+        "permissions": _permissions(row.get("roles")),
+        "feed": feed_health(),
+        "symbols": tiles,
+        "limits": snapshot(row.get("client_id"), row.get("roles")),
+    }
+
+
 @router.get("/ui", response_class=HTMLResponse)
 def home(request: Request):
     row = _open_session(request)
     if row is None:
         return _login_redirect(request)
-    return page(request, "home.html", row, {})
+    return page(request, "home.html", row, _overview(row))
 
 
 @router.post("/ui/logout")

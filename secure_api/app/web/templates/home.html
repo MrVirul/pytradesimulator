@@ -1,9 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Overview</h1>
-  <p>Signed in as {{ client_id }}.</p>
-  <p>Roles: {{ roles | join(", ") }}</p>
-</section>
+<h1>Overview</h1>
+<div class="grid">
+  <section class="card">
+    <h2>Identity</h2>
+    <p>Client {{ client_id }}</p>
+    <p>Roles {{ roles | join(", ") }}</p>
+    <ul>
+      {% for permission in permissions %}
+      <li>{{ permission }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section class="card">
+    <h2>Feed</h2>
+    <p>{% if feed.logged_on %}FIX session logged on{% else %}FIX session logged off{% endif %}</p>
+    <p>Last message {{ feed.last_message_at or "—" }}</p>
+  </section>
+  <section class="card">
+    <h2>Your rate limits</h2>
+    <ul>
+      {% for limit in limits %}
+      <li>{{ limit.category }}: {{ limit.used }} of {{ limit.allowed }}{% if limit.resets_at %}, resets {{ limit.resets_at }}{% endif %}</li>
+      {% else %}
+      <li>No usage recorded.</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+<div class="grid">
+  {% for tile in symbols %}
+  <section class="card">
+    <h2>{{ tile.symbol }}</h2>
+    <p><span class="pill {{ tile.status }}">{{ tile.status }}</span></p>
+    <p>Age {% if tile.age_seconds is not none %}{{ tile.age_seconds }}s{% else %}—{% endif %}</p>
+    <p>Bid {{ tile.best_bid if tile.best_bid is not none else "—" }}</p>
+    <p>Ask {{ tile.best_ask if tile.best_ask is not none else "—" }}</p>
+  </section>
+  {% else %}
+  <p>No symbols stored yet.</p>
+  {% endfor %}
+</div>
 {% endblock %}

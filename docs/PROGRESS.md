@@ -60,7 +60,7 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M7.4** HTMX-aware session, limit, and error responses. Status: `done`. Exit: an expired fragment redirects, and a 429 fragment keeps polling.
 - **M7.5** Shared layout and stylesheet. Status: `done`. Exit: every page extends `base.html` and the nav matches the role.
 - **M7.6** Login page with demo users. Status: `done`. Exit: cards and passwords come from the environment.
-- **M7.7** Overview dashboard. Status: `todo`. Exit: each role sees its own permissions and usage.
+- **M7.7** Overview dashboard. Status: `done`. Exit: each role sees its own permissions and usage.
 - **M7.8** Market console. Status: `todo`. Exit: live and stale books render with depth, spread, and freshness.
 - **M7.9** Surveillance console. Status: `todo`. Exit: an analyst can open an alert, and only an admin can edit a rule.
 - **M7.10** Security console. Status: `todo`. Exit: access and rate-limit scenarios show up in the counts.
@@ -195,3 +195,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-23** — M7.4. An HTMX request with no session gets `HX-Redirect` and does not include the login page. A 429 fragment says the limit was reached and keeps polling after `Retry-After`. Polling runs only while the tab is visible. `/ui` errors render HTML. Checked with `pytest secure_api/tests/test_htmx_errors.py` (3 passed).
 - **2026-10-23** — M7.5. Signed-in pages extend `base.html` with role-aware navigation, a user chip, and a sign-out form. Checked with `pytest secure_api/tests/test_layout.py` (passed). A graphical browser was not driven.
 - **2026-10-23** — M7.6. The login page shows one card per demo user. Passwords appear only when `SHOW_DEMO_CREDENTIALS` is not `0`. Checked with `pytest secure_api/tests/test_browser_session.py` (7 passed, 1 skipped). A graphical browser was not driven.
+- **2026-10-23** — M7.7. `/ui` shows the signed-in client, the permissions that role grants, feed health, symbol tiles, and that client's rate-limit usage. Checked with `pytest secure_api/tests/test_overview.py` (passed). A graphical browser was not driven.

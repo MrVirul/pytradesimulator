@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from secure_api.app.auth.policies import RATE_CATEGORY
+from secure_api.app.auth.policies import RATE_CATEGORY, ROLE_PERMISSIONS
 from secure_api.app.db import connection, lock
 
 
@@ -15,6 +15,65 @@ class RateDecision(object):
 
 def category_for(permission):
     return RATE_CATEGORY.get(permission, "market_data")
+
+
+def categories_for(roles):
+    found = []
+    for role in roles or []:
+        for permission in sorted(ROLE_PERMISSIONS.get(role, ())):
+            category = RATE_CATEGORY.get(permission)
+            if category and category not in found:
+                found.append(category)
+    return found
+
+
+def snapshot(subject, roles):
+    """Read the caller's limit and usage. This does not consume a request."""
+    try:
+        with lock():
+            conn = connection()
+            with conn.transaction():
+                return _snapshot(conn, subject, roles)
+    except Exception:
+        return []
+
+
+def _snapshot(conn, subject, roles):
+    now = datetime.now(timezone.utc)
+    usage = []
+    with conn.cursor() as cursor:
+        for category in categories_for(roles):
+            policy = _policy(cursor, subject, (roles or [""])[0], category)
+            if policy is None:
+                continue
+            _matched, allowed, window_seconds = policy
+            cursor.execute(
+                """
+                SELECT window_start, request_count
+                FROM rate_limit_counters
+                WHERE subject = %s AND category = %s
+                """,
+                (subject, category),
+            )
+            row = cursor.fetchone()
+            used = 0
+            resets_at = None
+            if row is not None:
+                window_start, request_count = row
+                if window_start.tzinfo is None:
+                    window_start = window_start.replace(tzinfo=timezone.utc)
+                if now - window_start < timedelta(seconds=int(window_seconds)):
+                    used = int(request_count)
+                    resets_at = (window_start + timedelta(seconds=int(window_seconds))).isoformat()
+            usage.append(
+                {
+                    "category": category,
+                    "used": used,
+                    "allowed": int(allowed),
+                    "resets_at": resets_at,
+                }
+            )
+    return usage
 
 
 def consume(subject, role, permission):
