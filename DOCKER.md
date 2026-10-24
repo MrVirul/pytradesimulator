@@ -86,6 +86,9 @@ The exchange is ready when the log shows:
 
 ## Secure layer
 
+`docs/RUNBOOK.md` is the short start, the path from an order to the page, and
+the fields taken from `35=W`. This section is the longer reference.
+
 The same Compose file also starts the read path described in
 `docs/ARCHITECTURE.md`. Services without a profile start together. Profile
 services (`client`, `market-client`, `baseline`, `order`, `scenario`) stay

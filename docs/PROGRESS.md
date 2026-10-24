@@ -68,6 +68,10 @@ Legacy regression recorded, `MDCLIENT3` and `CLIENT3` accepted, FIX ports unpubl
 - **M7.12** Scenario lab redesign. Status: `done`. Exit: a run updates in place and links to its alert or audit row.
 - **M7.13** Docs and evidence. Status: `done`. Exit: a new checkout can copy `.env.example` and sign in as each demo user.
 
+## Milestone 8 — Runbook
+
+- **M8.1** Step-by-step runbook. Status: `done`. Exit: `docs/RUNBOOK.md` starts the stack, shows how the processes connect, and lists the fields taken from `35=W`.
+
 ## Baseline results
 
 Recorded 2026-10-22.
@@ -202,3 +206,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-10-23** — M7.11. The API poller reads `audit_events` for `api_abuse` (429s above 2 in 60 seconds) and `access_denied` (401s and 403s above 5 in 60 seconds). It writes one alert per client per window, with no symbol and the client in the detail. Seeded by migration 008. Checked with `docker compose run --rm --no-deps -v` the API tree `:ro --entrypoint python api -m pytest secure_api/tests/test_security_alerts.py` (passed: three 429s, one `api_abuse` alert, a second poll did not add another). A graphical browser was not driven.
 - **2026-10-23** — M7.12. Each scenario is a card with its expected alert and, for the FIX scenarios, the fixed orders. The access scenarios say they do not send an order. The page shows run history, the remaining scenario budget, and a run that keeps polling until it finishes and links to alerts or the audit row. Checked with `pytest secure_api/tests/test_scenario_cards.py` (2 passed). A graphical browser was not driven.
 - **2026-10-23** — M7.13. `DOCKER.md` and `docs/ARCHITECTURE.md` describe `.env`, the sign-in and sign-out flow, and the five consoles. A named sign-in with no current session goes straight to Keycloak with `login_hint` and `prompt=login`. A sign-in that still has an id token ends the Keycloak session first. Host `pytest secure_api/tests` was 56 passed and 15 skipped. After `docker compose build api` and `docker compose up -d api`, a script signed in as `market`, `analyst`, and `admin`: each password form was filled with that username, `/ui` showed that user, market and analyst were refused the next console (403), and admin opened `/ui/security` (200). `docker run --rm pytradesim test` stayed at 22 passed. A graphical browser was not driven.
+- **2026-10-24** — M8.1. `docs/RUNBOOK.md` lists the start commands, the path from `35=D` to the page, and the fields `35=W` contributes. `README.rst` and `DOCKER.md` point at it. Checked against `docker-compose.yml`, `secure_api/adapter/normalizer.py`, and the secure-layer section of `DOCKER.md`. A fresh checkout was not rebuilt. A graphical browser was not driven.
