@@ -2,25 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}pytradesim{% endblock %}</title>
   <meta name="htmx-config" content='{"historyEnabled": false, "historyCacheSize": 0}'>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/console.js" defer></script>
 </head>
-<body>
+<body data-server-now="{{ server_now }}">
+  <a class="skip" href="#content">Skip to content</a>
   <header class="top">
     <a class="brand" href="/ui">pytradesim</a>
-    <nav>
+    <nav aria-label="Sections">
       {% for label, href in nav %}
-      <a href="{{ href }}" {% if path == href %}aria-current="page"{% endif %}>{{ label }}</a>
+      <a href="{{ href }}" data-nav="{{ loop.index }}" aria-keyshortcuts="{{ loop.index }}" {% if path == href %}aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
       <a href="/docs">API docs</a>
     </nav>
     {% if signed_in %}
+    <div class="link-status">
+      <span id="feed-state" class="num" data-tone="{{ 'ok' if feed.logged_on else 'deny' }}">{% if feed.logged_on %}FIX on{% else %}FIX off{% endif %}</span>
+      <span id="poll-state" data-tone="pending" aria-live="polite">—</span>
+    </div>
     <div class="user-chip">
-      <span>{{ client_id }}</span>
+      <span class="num">{{ client_id }}</span>
       <span>{{ roles | join(", ") }}</span>
-      <span>{{ minutes_left }} min left</span>
+      {% if expires_at %}
+      <span class="num" id="session-left" data-expires="{{ expires_at }}" {% if minutes_left <= 2 %}aria-live="polite"{% endif %}>{{ minutes_left }} min left</span>
+      {% else %}
+      <span class="num">{{ minutes_left }} min left</span>
+      {% endif %}
+      <button type="button" id="shortcut-open" aria-keyshortcuts="?" aria-haspopup="dialog">Shortcuts</button>
       <form method="post" action="/ui/logout">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit">Sign out</button>
@@ -29,8 +41,28 @@
     {% endif %}
   </header>
   <div class="message">{% block message %}{% endblock %}</div>
-  <main>
+  <main id="content" data-keep-scroll>
     {% block content %}{% endblock %}
   </main>
+  <dialog id="shortcuts">
+    <h2>Shortcuts</h2>
+    <table>
+      <caption>Keyboard shortcuts</caption>
+      <th scope="col"ead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
+      <tbody>
+        <tr><td>?</td><td>Open this sheet</td></tr>
+        <tr><td>1–5</td><td>Open a visible section</td></tr>
+        <tr><td>/</td><td>Focus the page filter</td></tr>
+        <tr><td>Esc</td><td>Close a dialog, or clear the focused filter</td></tr>
+        <tr><td>Arrows</td><td>Move through the table or the watchlist</td></tr>
+        <tr><td>Enter</td><td>Open the focused row, or confirm a scenario</td></tr>
+        <tr><td>[ ]</td><td>Previous or next symbol</td></tr>
+        <tr><td>p</td><td>Pause or resume the book</td></tr>
+        <tr><td>r</td><td>Refresh the book</td></tr>
+        <tr><td>c</td><td>Copy the focused audit request id</td></tr>
+      </tbody>
+    </table>
+    <button type="button" data-close-dialog>Close</button>
+  </dialog>
 </body>
 </html>

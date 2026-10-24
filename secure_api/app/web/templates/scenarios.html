@@ -1,46 +1,91 @@
 {% extends "base.html" %}
 {% block title %}Scenarios{% endblock %}
 {% block content %}
-<h1>Scenario lab</h1>
-<p class="facts">Rate limit {{ policy.requests_allowed }} requests per {{ policy.window_seconds }} seconds.{% if remaining is not none %} Remaining {{ remaining }}.{% endif %}</p>
-<div class="grid">
-{% for scenario in scenarios %}
-<section class="card">
-  <h2>{{ scenario.name }}</h2>
-  <p>{{ scenario.about }}</p>
-  <p>Expected {{ scenario.expects }}.</p>
-  {% if scenario.sends_order %}
-  <ul>
-    {% for line in scenario.orders %}
-    <li>{{ line }}</li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>Does not send an order.</p>
-  {% endif %}
-  <p>Last status {{ last_status.get(scenario.name, "not run") }}</p>
-  {% if scenario.runnable %}
-  <form method="post" action="/ui/scenarios">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="scenario" value="{{ scenario.name }}">
-    <button type="submit">Run</button>
-  </form>
-  {% endif %}
-</section>
-{% endfor %}
+<div class="lab-page">
+  <h1>Scenario lab</h1>
+  <div class="budget-strip">
+    <span>Budget {% if remaining is not none %}{{ remaining }}{% else %}—{% endif %} of {{ policy.requests_allowed }} per {{ policy.window_seconds }}s</span>
+    {% if budget %}<span class="meter"><span class="meter-fill" data-tone="{{ budget.tone }}" style="width: {{ budget.fill }}%"></span></span>{% endif %}
+  </div>
+  <div class="lab">
+    <section class="card lab-table">
+      <table>
+        <caption>Scenarios</caption>
+        <th scope="col"ead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">What it does</th>
+            <th scope="col">Orders</th>
+            <th scope="col">Expects</th>
+            <th scope="col">Last status</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scenario in scenarios %}
+          {% set state = last_status.get(scenario.name, "not run") %}
+          <tr data-row="scenario" tabindex="{{ 0 if loop.first else -1 }}">
+            <td class="mono">{{ scenario.name }}</td>
+            <td>{{ scenario.about }}</td>
+            <td class="orders">
+              {% if scenario.orders %}
+              {% for line in scenario.orders %}<span class="mono">{{ line }}</span>{% endfor %}
+              {% else %}
+              No order
+              {% endif %}
+            </td>
+            <td>{{ scenario.expects }}</td>
+            <td><span class="pill run-{{ state | replace(' ', '-') }}">{{ state }}</span></td>
+            <td>
+              {% if scenario.runnable %}
+              <form method="post" action="/ui/scenarios" data-run-form>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="scenario" value="{{ scenario.name }}">
+                <button type="submit" data-symbol="{{ scenario.symbol }}" aria-keyshortcuts="Enter"
+                  {% if remaining == 0 %}disabled title="{% if resets_at %}Resets {{ resets_at | ts }}{% else %}Budget used{% endif %}"{% endif %}>Run</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <div class="lab-side">
+      {% if run %}{% include "scenario_run.html" %}{% else %}
+      <section class="card"><h2>Active run</h2><p>No run selected.</p></section>
+      {% endif %}
+      <section class="card">
+        <h2>Run history</h2>
+        <table>
+          <caption>Run history</caption>
+          <th scope="col"ead><tr><th scope="col">Time</th><th scope="col">Scenario</th><th scope="col">Status</th><th scope="col">Request</th></tr></thead>
+          <tbody>
+            {% for item in history %}
+            <tr data-row="runs" tabindex="{{ 0 if loop.first else -1 }}">
+              <td class="num" title="{{ item.created_at }}">{{ item.created_at | tsd }}</td>
+              <td class="mono">{{ item.scenario }}</td>
+              <td><span class="pill run-{{ item.status }}">{{ item.status }}</span></td>
+              <td>{% if item.request_id %}<a class="mono" href="/ui/audit?request_id={{ item.request_id }}">{{ item.request_id }}</a>{% else %}—{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">No runs yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
 </div>
-{% if run %}{% include "scenario_run.html" %}{% endif %}
-<section class="card">
-  <h2>Run history</h2>
-  <ul>
-    {% for item in history %}
-    <li>
-      {{ item.created_at }} {{ item.scenario }} {{ item.status }}
-      {% if item.request_id %}<a href="/ui/audit?request_id={{ item.request_id }}">{{ item.request_id }}</a>{% endif %}
-    </li>
-    {% else %}
-    <li>No runs yet.</li>
-    {% endfor %}
-  </ul>
-</section>
+<dialog id="confirm-run">
+  <form method="post" action="/ui/scenarios" id="confirm-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="scenario" id="confirm-scenario" value="">
+    <h2 id="confirm-name"></h2>
+    <p id="confirm-symbol"></p>
+    <p id="confirm-orders" class="mono"></p>
+    <button type="submit" {% if remaining == 0 %}disabled{% endif %}>Confirm</button>
+    <button type="button" data-close-dialog>Cancel</button>
+  </form>
+</dialog>
 {% endblock %}

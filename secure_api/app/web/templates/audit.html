@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Audit{% endblock %}
 {% block content %}
-<h1>Audit</h1>
-{% include "audit_filters.html" %}
-{% include "audit_rows.html" %}
+<div class="audit-page">
+  <h1>Audit</h1>
+  {% include "audit_filters.html" %}
+  <div class="audit-panel">
+    {% include "audit_rows.html" %}
+  </div>
+</div>
 {% endblock %}

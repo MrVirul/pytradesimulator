@@ -1,0 +1,36 @@
+<section
+  id="overview-books"
+  data-poll
+  hx-get="/ui/overview/books"
+  hx-trigger="every 5s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
+  hx-swap="outerHTML">
+  <table>
+    <caption>Books</caption>
+    <th scope="col"ead>
+      <tr>
+        <th scope="col">Symbol</th>
+        <th scope="col">Status</th>
+        <th scope="col">Bid</th>
+        <th scope="col">Ask</th>
+        <th scope="col">Spread</th>
+        <th scope="col">Last change</th>
+        <th scope="col">Seq</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tile in symbols %}
+      <tr data-row="books" tabindex="{{ 0 if loop.first else -1 }}">
+        <td><a href="/ui/market?symbol={{ tile.symbol }}">{{ tile.symbol }}</a></td>
+        <td><span class="pill {{ tile.status }}">{{ tile.status }}</span></td>
+        <td class="num" data-k="ovw:{{ tile.symbol }}:bid" data-kind="price" data-v="{{ tile.best_bid if tile.best_bid is not none else '' }}">{{ tile.best_bid | price }}</td>
+        <td class="num" data-k="ovw:{{ tile.symbol }}:ask" data-kind="price" data-v="{{ tile.best_ask if tile.best_ask is not none else '' }}">{{ tile.best_ask | price }}</td>
+        <td class="num">{{ tile.spread | price }}</td>
+        <td class="num">{% if tile.received_at %}<time datetime="{{ tile.received_at }}" data-age-from="{{ tile.received_at }}">{{ tile.age_seconds | age }}</time>{% else %}—{% endif %}</td>
+        <td class="num">{{ tile.ingest_sequence }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No symbols stored yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>

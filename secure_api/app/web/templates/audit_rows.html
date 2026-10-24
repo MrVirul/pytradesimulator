@@ -1,31 +1,39 @@
 <section id="audit-rows">
   <table class="alerts">
     <caption>Audit events</caption>
-    <thead>
+    <th scope="col"ead>
       <tr>
-        <th>Time</th>
-        <th>Request id</th>
-        <th>Client</th>
-        <th>Action</th>
-        <th>Decision</th>
-        <th>Status</th>
-        <th>Reason</th>
+        <th scope="col">Time</th>
+        <th scope="col">Request id</th>
+        <th scope="col">Client</th>
+        <th scope="col">Action</th>
+        <th scope="col">Resource</th>
+        <th scope="col">Decision</th>
+        <th scope="col">Status</th>
+        <th scope="col">Reason</th>
+        <th scope="col">Latency ms</th>
       </tr>
     </thead>
     <tbody>
       {% for event in events %}
-      <tr>
-        <td>{{ event.recorded_at }}</td>
-        <td><a href="/ui/audit?request_id={{ event.request_id }}">{{ event.request_id }}</a></td>
+      <tr data-row="audit" tabindex="{{ 0 if loop.first else -1 }}">
+        <td class="num" title="{{ event.recorded_at }}">{{ event.recorded_at | tsd }}</td>
+        <td>
+          <a class="mono" href="/ui/audit?request_id={{ event.request_id }}">{{ event.request_id }}</a>
+          <button type="button" data-copy="{{ event.request_id }}" aria-keyshortcuts="c">Copy</button>
+        </td>
         <td>{{ event.client_id }}</td>
         <td>{{ event.action }}</td>
-        <td>{{ event.decision }}</td>
-        <td>{{ event.status_code }}</td>
+        <td class="clip" title="{{ event.resource }}">{{ event.resource or "—" }}</td>
+        <td><span class="pill {{ event.decision_tone }}">{{ event.decision }}</span></td>
+        <td><span class="pill {{ event.status_tone }}{% if event.status_bold %} bold{% endif %}">{{ event.status_code }}</span></td>
         <td>{{ event.reason }}</td>
+        <td class="num">{% if event.latency_ms is not none %}{{ event.latency_ms }}{% else %}—{% endif %}</td>
       </tr>
       {% else %}
-      <tr><td colspan="7">No audit events match this filter.</td></tr>
+      <tr><td colspan="9">No audit events match this filter.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  <p class="table-foot">Latest 50 matching.</p>
 </section>

@@ -38,7 +38,7 @@ def _open(monkeypatch):
             "received_at": "2026-10-23T00:00:00+00:00",
             "ingest_sequence": 2,
             "bids": [{"price": 50.0, "quantity": 10}],
-            "asks": [{"price": 60.0, "quantity": 10}],
+            "asks": [{"price": 70.0, "quantity": 4}, {"price": 60.0, "quantity": 10}],
         },
         "VOLUME": {
             "symbol": "VOLUME",
@@ -56,7 +56,7 @@ def _open(monkeypatch):
     monkeypatch.setattr("secure_api.app.web.routes.get_symbol", lambda symbol: books.get(symbol))
     monkeypatch.setattr(
         "secure_api.app.web.routes.recent_trades",
-        lambda symbol, limit: [{"ingestion_id": 1, "price": 150.0, "quantity": 10, "received_at": "2026-10-23T00:00:00+00:00"}],
+        lambda symbol, limit: [{"ingestion_id": 1, "price": 151.0, "quantity": 10, "received_at": "2026-10-23T00:00:00+00:00", "ingest_sequence": 4}],
     )
 
 
@@ -70,6 +70,13 @@ def test_depth_spread_and_stale_label(monkeypatch):
     assert "Spread" in page.text
     assert "10.0" in page.text
     assert "no event time" in page.text
+    assert "data-poll" in page.text
+    assert "!document.body.dataset.backoff" in page.text
+    assert "data-age-from=" in page.text
+    ladder = page.text.split('<div class="ladder', 1)[1]
+    assert ladder.index("70.00") < ladder.index("60.00") < ladder.index("Spread") < ladder.index("50.00")
+    assert 'data-k="best-bid"' in page.text
+    assert "Identical prints in one exchange flush are collapsed." in page.text
     paused = client.get(
         "/ui/market-data/PRICE/book",
         params={"paused": "1"},
@@ -78,3 +85,19 @@ def test_depth_spread_and_stale_label(monkeypatch):
     assert "Paused" in paused.text
     assert "every 3s" not in paused.text
     assert "Resume" in paused.text
+    same = client.get(
+        "/ui/market-data/PRICE/book",
+        params={"since": "4", "st": "live", "lo": "1"},
+        headers={"Cookie": "pytradesim_session=sess"},
+    )
+    assert same.status_code == 204
+    assert same.text == ""
+    moved = client.get(
+        "/ui/market-data/PRICE/book",
+        params={"since": "3", "st": "live", "lo": "1"},
+        headers={"Cookie": "pytradesim_session=sess"},
+    )
+    assert moved.status_code == 200
+    assert "Status live" in moved.text
+    assert 'hx-swap-oob="outerHTML"' in moved.text
+    assert 'data-id="1"' in moved.text

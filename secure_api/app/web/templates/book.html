@@ -1,67 +1,66 @@
 <section
   id="market-book"
-  class="book"
+  class="book{% if status == 'stale' %} is-stale{% endif %}"
+  data-poll
+  data-server-now="{{ server_now }}"
+  {% if paused %}data-paused="1"{% endif %}
   hx-get="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}"
-  {% if not paused %}hx-trigger="load, every 3s [document.visibilityState === 'visible']"{% endif %}
+  {% if not paused %}
+  hx-trigger="load, every 3s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
+  hx-vals='{"since": "{{ ingest_sequence if ingest_sequence is not none else "" }}", "st": "{{ status }}", "lo": "{{ 1 if logged_on else 0 }}"}'
+  {% endif %}
   hx-swap="outerHTML">
-  <header>
-    <h2>{{ symbol }}</h2>
+  <header class="market-head{% if status == 'stale' %} is-stale{% endif %}">
+    <span class="num symbol">{{ symbol }}</span>
     <p class="status status-{{ status }}">Status {{ status }}</p>
-    {% if paused %}<p>Paused</p>{% endif %}
-  </header>
-  <p>
+    {% if paused %}<p class="status status-stale">Paused</p>{% endif %}
+    <span class="num bid" data-k="best-bid" data-kind="price" data-v="{{ best_bid if best_bid is not none else '' }}">{{ best_bid | price }}</span>
+    <span class="num ask" data-k="best-ask" data-kind="price" data-v="{{ best_ask if best_ask is not none else '' }}">{{ best_ask | price }}</span>
+    <span class="num mid" data-k="spread" data-kind="price" data-v="{{ spread if spread is not none else '' }}">{{ spread | price }}</span>
+    <span class="num" data-k="last-px" data-kind="price" data-v="{{ last_trade.price if last_trade else '' }}">{% if last_trade %}{{ last_trade.price | price }} × {{ last_trade.quantity | qty }}{% else %}—{% endif %}</span>
+    <span class="num">{% if received_at %}<time datetime="{{ received_at }}" data-age-from="{{ received_at }}">{{ age_seconds | age }}</time>{% else %}—{% endif %}</span>
+    <span class="num">{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</span>
+    <span class="num">{% if logged_on %}FIX on{% else %}FIX off{% endif %}</span>
     {% if paused %}
-    <a href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Resume</a>
+    <a class="text-button" data-key="pause" aria-keyshortcuts="p" href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Resume</a>
     {% else %}
-    <a href="/ui/market-data/{{ symbol }}/book?paused=1" hx-get="/ui/market-data/{{ symbol }}/book?paused=1" hx-target="#market-book" hx-swap="outerHTML">Pause</a>
+    <a class="text-button" data-key="pause" aria-keyshortcuts="p" href="/ui/market-data/{{ symbol }}/book?paused=1" hx-get="/ui/market-data/{{ symbol }}/book?paused=1" hx-target="#market-book" hx-swap="outerHTML">Pause</a>
     {% endif %}
-    <a href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Refresh</a>
-  </p>
-  <dl class="facts">
-    <div><dt>Best bid</dt><dd>{{ best_bid if best_bid is not none else "—" }}</dd></div>
-    <div><dt>Best ask</dt><dd>{{ best_ask if best_ask is not none else "—" }}</dd></div>
-    <div><dt>Spread</dt><dd>{{ spread if spread is not none else "—" }}</dd></div>
-    <div><dt>Last trade</dt><dd>{% if last_trade %}{{ last_trade.price }} × {{ last_trade.quantity }}{% else %}—{% endif %}</dd></div>
-    <div><dt>Received</dt><dd>{{ received_at or "—" }}</dd></div>
-    <div><dt>Age</dt><dd>{% if age_seconds is not none %}{{ age_seconds }}s{% else %}—{% endif %}</dd></div>
-    <div><dt>Sequence</dt><dd>{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</dd></div>
-    <div><dt>FIX session</dt><dd>{% if logged_on %}logged on{% else %}logged off{% endif %}</dd></div>
-  </dl>
-  <p>The exchange sends no event time. Age is measured from the time this service stored the book.</p>
-  {% set bid_max = (bids | map(attribute='quantity') | max) if bids else 1 %}
-  {% set ask_max = (asks | map(attribute='quantity') | max) if asks else 1 %}
-  <div class="ladder">
-    <h3>Bids</h3>
-    {% for level in bids %}
-    <div class="level">
-      <span>{{ level.price }}</span>
-      <span class="bar" style="width: {{ (level.quantity / bid_max * 100) | round }}%"></span>
-      <span>{{ level.quantity }}</span>
-    </div>
-    {% else %}<p>No bids</p>{% endfor %}
-    <h3 class="ask">Asks</h3>
-    {% for level in asks %}
-    <div class="level ask">
-      <span>{{ level.price }}</span>
-      <span class="bar" style="width: {{ (level.quantity / ask_max * 100) | round }}%"></span>
-      <span>{{ level.quantity }}</span>
-    </div>
-    {% else %}<p>No asks</p>{% endfor %}
+    <a class="text-button" data-key="refresh" aria-keyshortcuts="r" href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Refresh</a>
+  </header>
+  <div class="ladder-panel">
+    <h2>Depth</h2>
+    {% if status == "uninitialized" %}
+    <p class="empty">No snapshot yet. The exchange sends the first one after the next book change.</p>
+    {% else %}
+    {% from "macros/ui.html" import ladder %}
+    {{ ladder(bids, asks, max_qty, spread, status == 'stale') }}
+    {% endif %}
+    <p>The exchange sends no event time. Age is measured from the time this service stored the book.</p>
   </div>
-  <table>
-    <caption>Recent trades</caption>
-    <thead><tr><th>Ingestion id</th><th>Price</th><th>Quantity</th><th>Received</th></tr></thead>
-    <tbody>
-      {% for trade in trades %}
-      <tr>
-        <td>{{ trade.ingestion_id }}</td>
-        <td>{{ trade.price }}</td>
-        <td>{{ trade.quantity }}</td>
-        <td>{{ trade.received_at }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="4">No trades</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="tape-panel" data-keep-scroll id="tape-{{ symbol }}">
+    <table class="tape">
+      <caption>Recent trades</caption>
+      <th scope="col"ead><tr><th scope="col">Time UTC</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Seq</th></tr></thead>
+      <tbody>
+        {% for trade in trades %}
+        <tr data-id="{{ trade.ingestion_id }}" title="{{ trade.ingestion_id }}">
+          <td class="num" title="{{ trade.received_at }}">{{ trade.received_at | ts }}</td>
+          <td class="num dir-{{ trade.tick }}">{{ trade.price | price }}{% if trade.tick == 'up' %} ▲{% elif trade.tick == 'down' %} ▼{% endif %}</td>
+          <td class="num">{{ trade.quantity | qty }}</td>
+          <td class="num">{{ trade.ingest_sequence }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">No trades</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p>Identical prints in one exchange flush are collapsed.</p>
+  </div>
+  {% if fragment %}
+  <span id="feed-state" class="num" data-tone="{{ 'ok' if logged_on else 'deny' }}" hx-swap-oob="outerHTML">{% if logged_on %}FIX on{% else %}FIX off{% endif %}</span>
+  {% set item = {"symbol": symbol, "status": status, "received_at": received_at, "age_seconds": age_seconds} %}
+  {% set oob = True %}
+  {% include "watch_row.html" %}
+  {% endif %}
 </section>

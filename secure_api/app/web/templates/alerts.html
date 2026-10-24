@@ -1,60 +1,103 @@
 {% extends "base.html" %}
 {% block title %}Surveillance{% endblock %}
 {% block content %}
-<h1>Surveillance</h1>
-<form id="alert-filters" class="symbol-form" method="get" action="/ui/alerts"
-      hx-get="/ui/alerts/rows" hx-trigger="change, submit"
-      hx-target="#alert-rows" hx-swap="outerHTML">
-  <label for="symbol">Symbol</label>
-  <select id="symbol" name="symbol">
-    <option value="">All</option>
-    {% for name in choices.symbols %}
-    <option value="{{ name }}" {% if name == symbol %}selected{% endif %}>{{ name }}</option>
-    {% endfor %}
-  </select>
-  <label for="rule">Rule</label>
-  <select id="rule" name="rule_name">
-    <option value="">All</option>
-    {% for name in choices.rules %}
-    <option value="{{ name }}" {% if name == rule_name %}selected{% endif %}>{{ name }}</option>
-    {% endfor %}
-  </select>
-  <label for="severity">Severity</label>
-  <select id="severity" name="severity">
-    <option value="">All</option>
-    {% for name in choices.severities %}
-    <option value="{{ name }}" {% if name == severity %}selected{% endif %}>{{ name }}</option>
-    {% endfor %}
-  </select>
-  <label for="created_from">From</label>
-  <input id="created_from" name="created_from" value="{{ created_from }}">
-  <label for="created_to">To</label>
-  <input id="created_to" name="created_to" value="{{ created_to }}">
-  <button type="submit">Filter</button>
-</form>
-{% include "alert_rows.html" %}
-<section class="card">
-  <h2>Rules</h2>
-  {% for rule in rules %}
-  <form method="post" action="/ui/rules">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="name" value="{{ rule.name }}">
-    <p>{{ rule.name }}{% if rule.window_seconds %} over {{ rule.window_seconds }}s{% endif %}</p>
-    <label for="threshold-{{ rule.name }}">Threshold</label>
-    <input id="threshold-{{ rule.name }}" name="threshold" value="{{ rule.threshold }}" {% if not can_write_rules %}disabled{% endif %}>
-    <label><input type="checkbox" name="enabled" value="1" {% if rule.enabled %}checked{% endif %} {% if not can_write_rules %}disabled{% endif %}> Enabled</label>
-    {% if can_write_rules %}<button type="submit">Save</button>{% endif %}
+<div class="surveillance">
+  <h1>Surveillance</h1>
+  <form id="alert-filters" class="filter-bar" method="get" action="/ui/alerts"
+        hx-get="/ui/alerts/rows" hx-trigger="change, submit"
+        hx-target="#alert-rows" hx-swap="outerHTML">
+    <label for="symbol">Symbol</label>
+    <select id="symbol" name="symbol" data-primary aria-keyshortcuts="/">
+      <option value="">All</option>
+      {% for name in choices.symbols %}
+      <option value="{{ name }}" {% if name == symbol %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <label for="rule">Rule</label>
+    <select id="rule" name="rule_name">
+      <option value="">All</option>
+      {% for name in choices.rules %}
+      <option value="{{ name }}" {% if name == rule_name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <label for="severity">Severity</label>
+    <select id="severity" name="severity">
+      <option value="">All</option>
+      {% for name in choices.severities %}
+      <option value="{{ name }}" {% if name == severity %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <label for="created_from">From</label>
+    <input id="created_from" name="created_from" type="datetime-local" value="{{ created_from }}">
+    <label for="created_to">To</label>
+    <input id="created_to" name="created_to" type="datetime-local" value="{{ created_to }}">
+    <button type="submit">Filter</button>
   </form>
-  {% endfor %}
-</section>
-<section class="card">
-  <h2>Timeline</h2>
-  <ul>
-    {% for event in events %}
-    <li>{{ event.at }} {{ event.kind }} {{ event.label }}</li>
-    {% else %}
-    <li>No alerts or scenario runs yet.</li>
-    {% endfor %}
-  </ul>
-</section>
+  <div class="alert-panel">
+    {% include "alert_rows.html" %}
+  </div>
+  <div class="alert-split">
+    <details class="card" open>
+      <summary>Rules</summary>
+      {% if can_write_rules %}
+      {% for rule in rules %}
+      <form id="rule-form-{{ loop.index }}" method="post" action="/ui/rules">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="name" value="{{ rule.name }}">
+      </form>
+      {% endfor %}
+      {% endif %}
+      <table>
+        <caption>Rules</caption>
+        <th scope="col"ead>
+          <tr><th scope="col">Name</th><th scope="col">Window</th><th scope="col">Threshold</th><th scope="col">Enabled</th>{% if can_write_rules %}<th scope="col"></th>{% endif %}</tr>
+        </thead>
+        <tbody>
+          {% for rule in rules %}
+          <tr>
+            <td>{{ rule.name }}</td>
+            <td>{% if rule.window_seconds %}over {{ rule.window_seconds }}s{% else %}—{% endif %}</td>
+            {% if can_write_rules %}
+            <td><input id="threshold-{{ loop.index }}" name="threshold" type="number" step="any" min="0.0001" value="{{ rule.threshold }}" form="rule-form-{{ loop.index }}"></td>
+            <td><label><input type="checkbox" name="enabled" value="1" {% if rule.enabled %}checked{% endif %} form="rule-form-{{ loop.index }}"> Enabled</label></td>
+            <td><button type="submit" form="rule-form-{{ loop.index }}">Save</button></td>
+            {% else %}
+            <td class="num">{{ rule.threshold | price }}</td>
+            <td>{% if rule.enabled %}yes{% else %}no{% endif %}</td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No rules stored.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    <details class="card" open>
+      <summary>Timeline</summary>
+      <table>
+        <caption>Timeline</caption>
+        <th scope="col"ead><tr><th scope="col">Time</th><th scope="col">Kind</th><th scope="col">Label</th></tr></thead>
+        <tbody>
+          {% for event in events %}
+          <tr>
+            <td class="num" title="{{ event.at }}">{{ event.at | tsd }}</td>
+            <td><span class="pill">{{ event.kind }}</span></td>
+            <td>
+              {% if event.kind == "alert" %}
+              <a href="/ui/alerts/{{ event.ref }}">{{ event.label }}</a>
+              {% elif event.kind == "scenario" %}
+              <a href="/ui/scenarios?run={{ event.ref }}">{{ event.label }}</a>
+              {% else %}
+              {{ event.label }}
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3">No alerts or scenario runs yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </div>
+</div>
 {% endblock %}

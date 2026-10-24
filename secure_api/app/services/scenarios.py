@@ -34,8 +34,9 @@ def scenario_choices():
     cards = []
     for name in LAB_SCENARIOS:
         lines = []
+        symbol = ""
         if name in SCENARIOS:
-            _symbol, orders = orders_for(name)
+            symbol, orders = orders_for(name)
             for order in orders:
                 lines.append(
                     "{0} {1} @ {2}".format(order["side"], order["quantity"], order["price"])
@@ -43,6 +44,7 @@ def scenario_choices():
         cards.append(
             {
                 "name": name,
+                "symbol": symbol,
                 "runnable": name in SCENARIOS or name in ACCESS_SCENARIOS,
                 "orders": lines,
                 "sends_order": name in SCENARIOS,

@@ -1,30 +1,59 @@
 {% extends "base.html" %}
 {% block title %}Alert {{ alert.id }}{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>{{ alert.rule_name }}</h1>
-  <p>Symbol {{ alert.symbol or "—" }}</p>
-  <p>Severity {{ alert.severity }}</p>
-  <p>Observed {{ alert.observed_value }} against threshold {{ alert.threshold }}</p>
-  <p>Time {{ alert.created_at }}</p>
-  <p>Sequence {{ alert.ingest_sequence if alert.ingest_sequence is not none else "—" }}</p>
-  <p>{{ alert.detail }}</p>
-</section>
-<section class="card">
-  <h2>Book at this sequence</h2>
-  {% if stored.book %}
-  <p>Bids {{ stored.book.bids }}</p>
-  <p>Asks {{ stored.book.asks }}</p>
-  {% else %}
-  <p>That book is no longer the stored snapshot{% if stored.current_sequence is not none %}. The current sequence is {{ stored.current_sequence }}{% endif %}.</p>
-  {% endif %}
-  <ul>
-    {% for trade in stored.trades %}
-    <li>{{ trade.price }} × {{ trade.quantity }}</li>
-    {% else %}
-    <li>No trades at this sequence.</li>
-    {% endfor %}
-  </ul>
-</section>
 <p><a href="/ui/alerts">Back to surveillance</a></p>
+<div class="alert-detail">
+  <section class="card">
+    <h1>{{ alert.rule_name }}</h1>
+    <dl>
+      <dt>Symbol</dt><dd>{{ alert.symbol or "—" }}</dd>
+      <dt>Severity</dt><dd><span class="pill {{ alert.severity }}">{{ alert.severity }}</span></dd>
+      <dt>Observed</dt><dd class="num">{{ alert.observed_value | price }}</dd>
+      <dt>Threshold</dt><dd class="num">{{ alert.threshold | price }}</dd>
+      <dt>Excess</dt><dd class="num">{{ alert.excess | signed }}</dd>
+      <dt>Ratio</dt><dd class="num">{{ alert.ratio_label or "—" }}</dd>
+      <dt>Time</dt><dd class="num" title="{{ alert.created_at }}">{{ alert.created_at }}</dd>
+      <dt>Sequence</dt><dd class="num">{% if alert.ingest_sequence is not none %}{{ alert.ingest_sequence }}{% else %}—{% endif %}</dd>
+    </dl>
+    <p>{{ alert.detail }}</p>
+    {% if alert.threshold_pct is not none %}
+    <div class="threshold-track" aria-hidden="true">
+      <span class="threshold-tick" style="left: {{ alert.threshold_pct }}%"></span>
+      <span class="threshold-mark" style="left: {{ alert.observed_pct }}%"></span>
+    </div>
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>Evidence</h2>
+    {% if audit_status %}
+    <p>Rule computed from audit events; no book.</p>
+    <p><a href="/ui/audit?status_code={{ audit_status }}">Matching audit rows</a></p>
+    {% elif ladder %}
+    {% from "macros/ui.html" import ladder as ladder_view %}
+    {{ ladder_view(ladder.bids, ladder.asks, ladder.max_qty, ladder.spread) }}
+    {% else %}
+    <p>That book is no longer the stored snapshot. The current sequence is {{ stored.current_sequence if stored.current_sequence is not none else "—" }}.</p>
+    {% if alert.symbol %}<p><a href="/ui/market?symbol={{ alert.symbol }}">Open {{ alert.symbol }}</a></p>{% endif %}
+    {% endif %}
+    {% if not audit_status %}
+    <h2>Trades at sequence {% if alert.ingest_sequence is not none %}{{ alert.ingest_sequence }}{% else %}—{% endif %}</h2>
+    <table>
+      <caption>Trades at this sequence</caption>
+      <th scope="col"ead><tr><th scope="col">Time</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Id</th></tr></thead>
+      <tbody>
+        {% for trade in stored.trades %}
+        <tr>
+          <td class="num" title="{{ trade.received_at }}">{{ trade.received_at | ts }}</td>
+          <td class="num">{{ trade.price | price }}</td>
+          <td class="num">{{ trade.quantity | qty }}</td>
+          <td class="num">{{ trade.ingestion_id }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">No trades at this sequence.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}

@@ -1,5 +1,8 @@
 """Every signed-in page shares a role-aware navigation bar."""
 
+import re
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from secure_api.app.main import app
@@ -57,3 +60,29 @@ def test_nav_matches_the_role(monkeypatch):
             marker = 'href="{0}"'.format(href)
             assert (marker in response.text) is (href in links)
         assert 'href="/docs"' in response.text
+        assert 'id="poll-state"' in response.text
+        assert 'id="feed-state"' in response.text
+        assert 'src="/static/console.js"' in response.text
+        assert 'name="viewport"' in response.text
+        assert "data-server-now=" in response.text
+        assert "localStorage" not in response.text
+        assert 'href="#content"' in response.text
+        assert "<header" in response.text and "<nav" in response.text and "<main" in response.text
+        assert 'id="shortcuts"' in response.text
+        assert 'id="shortcut-open"' in response.text
+        assert 'aria-live="polite"' in response.text
+        assert 'data-nav="1"' in response.text
+
+
+def test_tables_are_captioned_and_headers_are_scoped():
+    root = Path(__file__).resolve().parents[1] / "app" / "web"
+    book = (root / "templates" / "book.html").read_text(encoding="utf-8")
+    assert "aria-live" not in book
+    css = (root / "static" / "app.css").read_text(encoding="utf-8")
+    assert "outline: 2px solid var(--focus)" in css
+    assert "min-height: 24px" in css
+    for path in (root / "templates").rglob("*.html"):
+        text = path.read_text(encoding="utf-8")
+        for header in re.findall(r"<th\b[^>]*>", text):
+            assert 'scope="col"' in header
+        assert text.count("<caption") >= text.count("<table")

@@ -2,44 +2,46 @@
 {% block title %}Overview{% endblock %}
 {% block content %}
 <h1>Overview</h1>
-<div class="grid">
-  <section class="card">
-    <h2>Identity</h2>
-    <p>Client {{ client_id }}</p>
-    <p>Roles {{ roles | join(", ") }}</p>
-    <ul>
-      {% for permission in permissions %}
-      <li>{{ permission }}</li>
-      {% endfor %}
-    </ul>
+<div class="overview">
+  <section class="card books-panel">
+    <h2>Books</h2>
+    {% include "overview_books.html" %}
   </section>
-  <section class="card">
-    <h2>Feed</h2>
-    <p>{% if feed.logged_on %}FIX session logged on{% else %}FIX session logged off{% endif %}</p>
-    <p>Last message {{ feed.last_message_at or "—" }}</p>
-  </section>
-  <section class="card">
-    <h2>Your rate limits</h2>
-    <ul>
-      {% for limit in limits %}
-      <li>{{ limit.category }}: {{ limit.used }} of {{ limit.allowed }}{% if limit.resets_at %}, resets {{ limit.resets_at }}{% endif %}</li>
-      {% else %}
-      <li>No usage recorded.</li>
-      {% endfor %}
-    </ul>
-  </section>
-</div>
-<div class="grid">
-  {% for tile in symbols %}
-  <section class="card">
-    <h2>{{ tile.symbol }}</h2>
-    <p><span class="pill {{ tile.status }}">{{ tile.status }}</span></p>
-    <p>Age {% if tile.age_seconds is not none %}{{ tile.age_seconds }}s{% else %}—{% endif %}</p>
-    <p>Bid {{ tile.best_bid if tile.best_bid is not none else "—" }}</p>
-    <p>Ask {{ tile.best_ask if tile.best_ask is not none else "—" }}</p>
-  </section>
-  {% else %}
-  <p>No symbols stored yet.</p>
-  {% endfor %}
+  <div class="overview-rail">
+    <section class="card">
+      <h2>Feed</h2>
+      <p>{% if feed.logged_on %}FIX on{% else %}FIX off{% endif %}</p>
+      <p>{% if feed.last_message_at %}Last message <time class="num" datetime="{{ feed.last_message_at }}" title="{{ feed.last_message_at }}">{{ feed.last_message_at | ts }}</time>{% else %}Last message not recorded{% endif %}</p>
+    </section>
+    <section class="card">
+      <h2>Your rate limits</h2>
+      <table>
+        <caption>Rate limits</caption>
+        <th scope="col"ead><tr><th scope="col">Category</th><th scope="col">Used</th><th scope="col"></th><th scope="col">Resets UTC</th></tr></thead>
+        <tbody>
+          {% for limit in limits %}
+          <tr>
+            <td>{{ limit.category }}</td>
+            <td class="num">{{ limit.used }} of {{ limit.allowed }}</td>
+            <td><span class="meter"><span class="meter-fill" data-tone="{{ limit.tone }}" style="width: {{ limit.fill }}%"></span></span></td>
+            <td class="num">{% if limit.resets_at %}{{ limit.resets_at | ts }}{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No usage recorded.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <details class="card">
+      <summary>Identity</summary>
+      <p>Client <span class="num">{{ client_id }}</span></p>
+      <p>Roles {{ roles | join(", ") }}</p>
+      <ul>
+        {% for permission in permissions %}
+        <li>{{ permission }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </div>
 </div>
 {% endblock %}

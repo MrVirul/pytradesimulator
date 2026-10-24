@@ -66,6 +66,33 @@ def list_symbols():
     ]
 
 
+def list_books():
+    """Latest book for every symbol. One query, so the overview does not fetch each symbol again."""
+    with lock():
+        conn = connection()
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT symbol, status, received_at, ingest_sequence, bids, asks
+                    FROM market_snapshots
+                    ORDER BY symbol
+                    """
+                )
+                rows = cursor.fetchall()
+    return [
+        {
+            "symbol": row[0],
+            "status": row[1],
+            "received_at": row[2].isoformat(),
+            "ingest_sequence": row[3],
+            "bids": _levels(row[4]),
+            "asks": _levels(row[5]),
+        }
+        for row in rows
+    ]
+
+
 def get_symbol(symbol):
     if SYMBOL_PATTERN.match(symbol or "") is None:
         return None

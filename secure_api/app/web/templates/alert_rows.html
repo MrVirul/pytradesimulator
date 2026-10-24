@@ -1,31 +1,40 @@
-<section id="alert-rows">
+<section
+  id="alert-rows"
+  data-poll
+  hx-get="/ui/alerts/rows"
+  hx-include="#alert-filters"
+  hx-trigger="every 10s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
+  hx-swap="outerHTML">
   <table class="alerts">
-    <caption>Alerts</caption>
-    <thead>
+    <caption>Alerts <span id="alerts-new"></span></caption>
+    <th scope="col"ead>
       <tr>
-        <th>Time</th>
-        <th>Rule</th>
-        <th>Symbol</th>
-        <th>Severity</th>
-        <th>Observed</th>
-        <th>Threshold</th>
-        <th>Detail</th>
+        <th scope="col">Time</th>
+        <th scope="col">Rule</th>
+        <th scope="col">Symbol</th>
+        <th scope="col">Severity</th>
+        <th scope="col">Observed</th>
+        <th scope="col">Threshold</th>
+        <th scope="col">Excess</th>
+        <th scope="col">Detail</th>
       </tr>
     </thead>
     <tbody>
       {% for alert in alerts %}
-      <tr>
-        <td>{{ alert.created_at }}</td>
+      <tr data-id="{{ alert.id }}" data-row="alerts" tabindex="{{ 0 if loop.first else -1 }}">
+        <td class="num" title="{{ alert.created_at }}">{{ alert.created_at | tsd }}</td>
         <td><a href="/ui/alerts/{{ alert.id }}">{{ alert.rule_name }}</a></td>
         <td>{{ alert.symbol or "—" }}</td>
-        <td>{{ alert.severity }}</td>
-        <td>{{ alert.observed_value }}</td>
-        <td>{{ alert.threshold }}</td>
-        <td>{{ alert.detail }}</td>
+        <td><span class="pill {{ alert.severity }}">{{ alert.severity }}</span></td>
+        <td class="num">{{ alert.observed_value | price }}</td>
+        <td class="num">{{ alert.threshold | price }}</td>
+        <td class="num">{{ alert.excess | signed }}</td>
+        <td class="clip" title="{{ alert.detail }}">{{ alert.detail }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="7">No alerts match this filter.</td></tr>
+      <tr><td colspan="8">No alerts match this filter.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  <p class="table-foot">Latest 100 matching.</p>
 </section>

@@ -2,8 +2,10 @@
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
 <section class="card">
+  <p class="status-code">{{ status }}</p>
   <h1>{{ title }}</h1>
   <p>{{ message }}</p>
+  <p>Request {% if can_audit and request_id %}<a class="mono" href="/ui/audit?request_id={{ request_id }}">{{ request_id }}</a>{% else %}<span class="mono">{{ request_id }}</span>{% endif %}</p>
   <p><a href="/ui">Back</a></p>
 </section>
 {% endblock %}

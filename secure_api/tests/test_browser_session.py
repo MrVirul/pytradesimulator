@@ -81,9 +81,15 @@ def test_login_cards_use_the_environment(client, monkeypatch):
     assert "changeme" in shown.text
     assert "Signed out." in client.get("/ui/login", params={"state": "signed_out"}).text
     assert "Session expired" in client.get("/ui/login", params={"error": "expired"}).text
+    unknown = client.get("/ui/login", params={"error": "unknown_user"})
+    assert "That account is not a demo user." in unknown.text
+    assert 'name="viewport"' in shown.text
+    assert 'data-copy="changeme"' in shown.text
+    assert "market_data_client" in shown.text
     monkeypatch.setenv("SHOW_DEMO_CREDENTIALS", "0")
     hidden = client.get("/ui/login")
     assert "changeme" not in hidden.text
+    assert "data-copy=" not in hidden.text
     assert 'href="/ui/login/start?user=admin"' in hidden.text
 
 
@@ -175,6 +181,25 @@ def test_used_sign_in_returns_to_the_login_page(client, monkeypatch):
     )
     assert response.status_code == 302
     assert response.headers["location"].endswith("/ui/login?error=expired")
+
+
+def test_callback_without_market_access_uses_the_error_page(client, monkeypatch):
+    monkeypatch.setattr("secure_api.app.web.routes.take_attempt", lambda state: "verifier")
+    monkeypatch.setattr("secure_api.app.web.routes.exchange_code", lambda verifier, code: "token")
+    monkeypatch.setattr(
+        "secure_api.app.web.routes.decode_token",
+        lambda token: {"roles": [], "client_id": "nobody"},
+    )
+    response = client.get("/ui/callback", params={"code": "demo-code", "state": "state-1"})
+    assert response.status_code == 403
+    assert response.text.lstrip().startswith("<!DOCTYPE html>")
+    assert "This account cannot open the app" in response.text
+    assert ">req-" in response.text
+    assert "market.css" not in response.text
+    from pathlib import Path
+
+    css = Path(__file__).resolve().parents[1] / "app" / "web" / "static" / "market.css"
+    assert not css.exists()
 
 
 def test_session_ends_when_the_token_expires(monkeypatch):

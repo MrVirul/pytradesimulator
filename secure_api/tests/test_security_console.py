@@ -75,6 +75,33 @@ def test_security_page_shows_counts_and_links_the_request(monkeypatch):
     assert 'href="/ui/audit?request_id=req-demo-limit-2"' in text
     assert "<select" in text
     assert "market_data" in text
+    assert "Counts include console polling; each book refresh is one audited request." in text
+    assert "Refresh" in text
+    assert "as of " in text
+    assert "00:00" in text
+    assert "/api/v1/market-data/BASELINE" in text
+    assert ">12<" in text
+    assert "Latest 50 matching." in text
+    assert 'data-copy="req-demo-limit-2"' in text
+    assert "60s" in text
+    assert "width: 75%" in text
+    assert 'data-tone="muted"' in text
+    assert 'data-tone="deny"' in text
+    assert 'data-tone="warn"' in text
+    assert "data-poll" not in text
+    assert "every " not in text
+    assert 'type="datetime-local"' in text
+    assert 'type="search"' in text
+    audit = TestClient(app, base_url="https://testserver").get(
+        "/ui/audit",
+        headers={"Cookie": "pytradesim_session=sess"},
+    )
+    assert audit.status_code == 200
+    assert "/api/v1/market-data/BASELINE" in audit.text
+    assert ">12<" in audit.text
+    assert "Latest 50 matching." in audit.text
+    assert "data-poll" not in audit.text
+    assert "every " not in audit.text
 
 
 def test_metrics_requires_operations_read(monkeypatch):
