@@ -14,13 +14,15 @@
     <span class="num symbol">{{ symbol }}</span>
     <p class="status status-{{ status }}">Status {{ status }}</p>
     {% if paused %}<p class="status status-stale">Paused</p>{% endif %}
-    <span class="num bid" data-k="best-bid" data-kind="price" data-v="{{ best_bid if best_bid is not none else '' }}">{{ best_bid | price }}</span>
-    <span class="num ask" data-k="best-ask" data-kind="price" data-v="{{ best_ask if best_ask is not none else '' }}">{{ best_ask | price }}</span>
-    <span class="num mid" data-k="spread" data-kind="price" data-v="{{ spread if spread is not none else '' }}">{{ spread | price }}</span>
-    <span class="num" data-k="last-px" data-kind="price" data-v="{{ last_trade.price if last_trade else '' }}">{% if last_trade %}{{ last_trade.price | price }} × {{ last_trade.quantity | qty }}{% else %}—{% endif %}</span>
-    <span class="num">{% if received_at %}<time datetime="{{ received_at }}" data-age-from="{{ received_at }}">{{ age_seconds | age }}</time>{% else %}—{% endif %}</span>
-    <span class="num">{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</span>
-    <span class="num">{% if logged_on %}FIX on{% else %}FIX off{% endif %}</span>
+    <dl class="market-facts">
+      <div class="fact"><dt>Bid</dt><dd class="num bid" data-k="best-bid" data-kind="price" data-v="{{ best_bid if best_bid is not none else '' }}">{{ best_bid | price }}</dd></div>
+      <div class="fact"><dt>Ask</dt><dd class="num ask" data-k="best-ask" data-kind="price" data-v="{{ best_ask if best_ask is not none else '' }}">{{ best_ask | price }}</dd></div>
+      <div class="fact"><dt>Spread</dt><dd class="num mid" data-k="spread" data-kind="price" data-v="{{ spread if spread is not none else '' }}">{{ spread | price }}</dd></div>
+      <div class="fact"><dt>Last</dt><dd class="num" data-k="last-px" data-kind="price" data-v="{{ last_trade.price if last_trade else '' }}">{% if last_trade %}{{ last_trade.price | price }} × {{ last_trade.quantity | qty }}{% else %}—{% endif %}</dd></div>
+      <div class="fact"><dt>Age</dt><dd class="num">{% if received_at %}<time datetime="{{ received_at }}" data-age-from="{{ received_at }}">{{ age_seconds | age }}</time>{% else %}—{% endif %}</dd></div>
+      <div class="fact"><dt>Seq</dt><dd class="num">{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</dd></div>
+      <div class="fact"><dt>FIX</dt><dd class="num">{% if logged_on %}on{% else %}off{% endif %}</dd></div>
+    </dl>
     {% if paused %}
     <a class="text-button" id="market-pause" data-key="pause" aria-keyshortcuts="p" href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Resume</a>
     {% else %}
@@ -51,7 +53,7 @@
           <td class="num">{{ trade.ingest_sequence }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="4">No trades</td></tr>
+        <tr><td colspan="4">No trades yet. The first print will appear here.</td></tr>
         {% endfor %}
       </tbody>
     </table>

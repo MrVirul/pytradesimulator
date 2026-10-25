@@ -120,6 +120,18 @@ if (context.pts.announcePlan("ok", "retry", 9).indexOf("9 seconds") < 0) process
 if (context.pts.announcePlan("retry", "ok", 0) !== "Polling resumed.") process.exit(57);
 if (context.pts.announcePlan("pending", "ok", 0) !== "") process.exit(58);
 if (context.pts.announcePlan("ok", "down", 0).indexOf("last good data") < 0) process.exit(59);
+if (context.pts.errorMessage(429, "9") !== "Limit reached, retrying in 9 s") process.exit(60);
+if (context.pts.errorMessage(403, null) !== "Missing permission") process.exit(61);
+if (context.pts.errorMessage(400, null) !== "Check the filter values") process.exit(62);
+if (context.pts.errorMessage(500, null) !== "Request failed, try again") process.exit(63);
+if (context.pts.errorMessage(0, null) !== "Request failed, try again") process.exit(64);
+const filterForm = {
+  tagName: "FORM",
+  getAttribute: function (name) { return name === "data-error" ? "audit-filter-error" : null; }
+};
+filterForm.closest = function () { return filterForm; };
+if (context.pts.errorIdFor(filterForm) !== "audit-filter-error") process.exit(65);
+if (context.pts.errorIdFor({tagName: "A", closest: function () { return null; }}) !== "") process.exit(66);
 """
     result = subprocess.run(
         [node, "-e", program, str(SCRIPT)],

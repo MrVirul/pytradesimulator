@@ -4,6 +4,7 @@
 <div class="surveillance">
   <h1>Surveillance</h1>
   <form id="alert-filters" class="filter-bar" method="get" action="/ui/alerts"
+        data-error="alert-filter-error"
         hx-get="/ui/alerts/rows" hx-trigger="change, submit"
         hx-target="#alert-rows" hx-swap="outerHTML">
     <label for="symbol">Symbol</label>
@@ -27,12 +28,13 @@
       <option value="{{ name }}" {% if name == severity %}selected{% endif %}>{{ name }}</option>
       {% endfor %}
     </select>
-    <label for="created_from">From</label>
-    <input id="created_from" name="created_from" type="datetime-local" value="{{ created_from }}">
-    <label for="created_to">To</label>
-    <input id="created_to" name="created_to" type="datetime-local" value="{{ created_to }}">
+    <label for="created_from">From (UTC)</label>
+    <input id="created_from" name="created_from" type="datetime-local" value="{{ created_from }}" title="Times are UTC">
+    <label for="created_to">To (UTC)</label>
+    <input id="created_to" name="created_to" type="datetime-local" value="{{ created_to }}" title="Times are UTC">
     <button type="submit">Filter</button>
   </form>
+  <p class="form-error" id="alert-filter-error" role="alert"></p>
   <div class="alert-panel">
     {% include "alert_rows.html" %}
   </div>
@@ -48,7 +50,7 @@
       {% endfor %}
       {% endif %}
       <table>
-        <caption>Rules</caption>
+        <caption>Rule thresholds in effect</caption>
         <thead>
           <tr><th scope="col">Name</th><th scope="col">Window</th><th scope="col">Threshold</th><th scope="col">Enabled</th>{% if can_write_rules %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr>
         </thead>
@@ -75,8 +77,8 @@
     <details class="card" open>
       <summary>Timeline</summary>
       <table>
-        <caption>Timeline</caption>
-        <thead><tr><th scope="col">Time</th><th scope="col">Kind</th><th scope="col">Label</th></tr></thead>
+        <caption>Recent alerts and scenario runs</caption>
+        <thead><tr><th scope="col">Time UTC</th><th scope="col">Kind</th><th scope="col">Label</th></tr></thead>
         <tbody>
           {% for event in events %}
           <tr>
@@ -93,7 +95,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="3">No alerts or scenario runs yet.</td></tr>
+          <tr><td colspan="3">No alerts or scenario runs yet. New activity will appear here.</td></tr>
           {% endfor %}
         </tbody>
       </table>

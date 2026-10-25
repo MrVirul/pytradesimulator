@@ -31,13 +31,13 @@
         <span class="meter"><span class="meter-fill" style="width: {{ bar.width }}%"></span></span>
         <span class="num">{{ bar.count }}</span>
       </div>
-      {% else %}<p>No requests in this window.</p>{% endfor %}
+      {% else %}<p>No requests in this window. The first request will appear in the next bar.</p>{% endfor %}
     </section>
     <div class="security-side">
       <section class="card">
         <h2>Top clients</h2>
         <table>
-          <caption>Top clients</caption>
+          <caption>Top clients in this window</caption>
           <thead><tr><th scope="col">Client</th><th scope="col">Count</th><th scope="col">Share</th></tr></thead>
           <tbody>
             {% for client in report.clients %}
@@ -47,7 +47,7 @@
               <td><span class="meter"><span class="meter-fill" style="width: {{ client.share }}%"></span></span></td>
             </tr>
             {% else %}
-            <tr><td colspan="3">No clients in this window.</td></tr>
+            <tr><td colspan="3">No clients in this window yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -55,7 +55,7 @@
       <section class="card">
         <h2>Policies</h2>
         <table>
-          <caption>Policies</caption>
+          <caption>Policies in effect</caption>
           <thead><tr><th scope="col">Subject</th><th scope="col">Category</th><th scope="col">Used</th><th scope="col"><span class="sr-only">Actions</span></th><th scope="col">Window</th></tr></thead>
           <tbody>
             {% for policy in report.policies %}
@@ -74,10 +74,10 @@
       </section>
     </div>
   </div>
-  <h2>Audit search</h2>
-  {% include "audit_filters.html" %}
-  <div class="audit-panel">
-    {% include "audit_rows.html" %}
-  </div>
+  <section class="card">
+    <h2>Audit log</h2>
+    <p><a class="text-button" href="/ui/audit">Open audit log</a></p>
+    <p class="note">Denied requests: <a href="/ui/audit?status_code=403">403</a> / <a href="/ui/audit?status_code=429">429</a>.</p>
+  </section>
 </div>
 {% endblock %}

@@ -5,7 +5,7 @@
   hx-trigger="every 5s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
   hx-swap="outerHTML">
   <table>
-    <caption>Books</caption>
+    <caption>Books and their last change</caption>
     <thead>
       <tr>
         <th scope="col">Symbol</th>
@@ -29,7 +29,7 @@
         <td class="num">{{ tile.ingest_sequence }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="7">No symbols stored yet.</td></tr>
+      <tr><td colspan="7">No symbols stored yet. A book appears after the first market update.</td></tr>
       {% endfor %}
     </tbody>
   </table>

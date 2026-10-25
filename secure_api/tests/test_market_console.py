@@ -75,7 +75,14 @@ def test_depth_spread_and_stale_label(monkeypatch):
     assert "data-age-from=" in page.text
     ladder = page.text.split('<div class="ladder', 1)[1]
     assert ladder.index("70.00") < ladder.index("60.00") < ladder.index("Spread") < ladder.index("50.00")
+    assert ladder.count('class="side"') == 3
+    assert '<span class="side">Ask</span>' in ladder
+    assert '<span class="side">Bid</span>' in ladder
     assert 'data-k="best-bid"' in page.text
+    assert '<dl class="market-facts">' in page.text
+    for label in ("Bid", "Ask", "Spread", "Last", "Age", "Seq", "FIX"):
+        assert "<dt>{0}</dt>".format(label) in page.text
+    assert "<dt>Age</dt>" in page.text
     assert "Identical prints in one exchange flush are collapsed." in page.text
     paused = client.get(
         "/ui/market-data/PRICE/book",

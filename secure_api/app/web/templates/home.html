@@ -17,7 +17,7 @@
     <section class="card">
       <h2>Your rate limits</h2>
       <table>
-        <caption>Rate limits</caption>
+        <caption>Used and allowed per category</caption>
         <thead><tr><th scope="col">Category</th><th scope="col">Used</th><th scope="col"><span class="sr-only">Actions</span></th><th scope="col">Resets UTC</th></tr></thead>
         <tbody>
           {% for limit in limits %}
@@ -28,7 +28,7 @@
             <td class="num">{% if limit.resets_at %}{{ limit.resets_at | ts }}{% else %}—{% endif %}</td>
           </tr>
           {% else %}
-          <tr><td colspan="4">No usage recorded.</td></tr>
+          <tr><td colspan="4">No requests counted yet. Usage appears after the first request.</td></tr>
           {% endfor %}
         </tbody>
       </table>

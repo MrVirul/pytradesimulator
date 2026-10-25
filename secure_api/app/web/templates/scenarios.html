@@ -59,13 +59,13 @@
     </section>
     <div class="lab-side">
       {% if run %}{% include "scenario_run.html" %}{% else %}
-      <section class="card"><h2>Active run</h2><p>No run selected.</p></section>
+      <section class="card"><h2>Active run</h2><p>No run selected. Choose Run on a scenario.</p></section>
       {% endif %}
       <section class="card">
         <h2>Run history</h2>
         <table>
-          <caption>Run history</caption>
-          <thead><tr><th scope="col">Time</th><th scope="col">Scenario</th><th scope="col">Status</th><th scope="col">Request</th></tr></thead>
+          <caption>Last 12 runs, newest first</caption>
+          <thead><tr><th scope="col">Time UTC</th><th scope="col">Scenario</th><th scope="col">Status</th><th scope="col">Request</th></tr></thead>
           <tbody>
             {% for item in history %}
             <tr id="run-{{ item.id }}" data-row="runs" tabindex="{{ 0 if loop.first else -1 }}">
@@ -75,7 +75,7 @@
               <td>{% if item.request_id %}<a class="mono" href="/ui/audit?request_id={{ item.request_id }}">{{ item.request_id }}</a>{% else %}—{% endif %}</td>
             </tr>
             {% else %}
-            <tr><td colspan="4">No runs yet.</td></tr>
+            <tr><td colspan="4">No runs yet. Run a scenario to see its result here.</td></tr>
             {% endfor %}
           </tbody>
         </table>

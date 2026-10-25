@@ -71,4 +71,7 @@ def test_forbidden_page_is_html(monkeypatch):
     assert response.status_code == 403
     assert response.headers["content-type"].startswith("text/html")
     assert "Missing permission" in response.text
+    assert "error-card" in response.text
+    assert "Back to Market" in response.text
+    assert 'href="/ui/market"' in response.text
     assert response.text.strip().startswith("<!DOCTYPE html>")

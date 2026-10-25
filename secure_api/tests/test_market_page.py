@@ -97,9 +97,10 @@ def test_book_fragment_shows_age_and_status(client, keys, monkeypatch):
     assert fragment.status_code == 200
     text = fragment.text
     assert "Status live" in text or "Status stale" in text
-    assert "Age" in text
+    assert "<dt>Age</dt>" in text
     assert "s</dd>" in text
-    assert "Received" in text
+    assert "<dt>Seq</dt>" in text
+    assert "data-age-from=" in text
     assert "2026-" in text
     assert "51.0" in text
     assert token not in text

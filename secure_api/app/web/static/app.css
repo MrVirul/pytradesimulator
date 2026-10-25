@@ -221,6 +221,7 @@ main {
   border-radius: 0;
   padding: var(--s2);
 }
+.error-card { max-width: 48ch; }
 
 h1 { margin: 0 0 var(--s2); font-size: 16px; font-weight: 600; }
 h2, h3 {
@@ -251,6 +252,7 @@ h2, h3 {
 .pill.denied { color: var(--deny); background: var(--deny-bg); }
 
 table { width: 100%; border-collapse: collapse; background: var(--bg-panel); }
+caption { text-align: left; }
 th, td {
   text-align: left;
   padding: var(--s1) var(--s2);
@@ -268,7 +270,8 @@ th {
 td.num, dd.num, .num { text-align: right; }
 
 .ladder { display: grid; gap: var(--s1); }
-.level { display: grid; grid-template-columns: 8ch 8ch 10ch 1fr; gap: var(--s2); align-items: center; }
+.level { display: grid; grid-template-columns: 4ch 8ch 8ch 10ch 1fr; gap: var(--s2); align-items: center; }
+.level .side { color: var(--text-2); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 .level.head { color: var(--text-2); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 .bar { display: block; height: 8px; background: var(--bid-bar); border-radius: 0; }
 .ask .bar { background: var(--ask-bar); }
@@ -344,6 +347,10 @@ dialog {
 }
 
 .market-head .symbol { font-size: 16px; font-weight: 600; text-align: left; }
+.market-facts { display: flex; align-items: baseline; gap: var(--s3); margin: 0; }
+.market-facts .fact { display: flex; align-items: baseline; gap: var(--s1); white-space: nowrap; }
+.market-facts dt { color: var(--text-2); }
+.market-facts dd { margin: 0; }
 .market-head .bid { color: var(--bid); }
 .market-head .ask { color: var(--ask); }
 .market-head .mid { color: var(--neutral); }
@@ -431,6 +438,18 @@ details.card > summary { cursor: pointer; color: var(--text-2); font-size: 12px;
 .filter-bar label, .filter-bar input, .filter-bar select, .filter-bar button, .filter-bar a {
   flex: 0 0 auto;
 }
+.filter-summary {
+  margin: 0;
+  padding: var(--s1) var(--s2);
+  color: var(--text-2);
+  font-size: 11px;
+}
+.form-error {
+  margin: var(--s1) 0 0;
+  color: var(--deny);
+  font-size: 12px;
+}
+.form-error:empty { display: none; }
 
 .alert-panel {
   flex: 1 1 auto;

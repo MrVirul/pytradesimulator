@@ -12,7 +12,7 @@
       <dt>Threshold</dt><dd class="num">{{ alert.threshold | price }}</dd>
       <dt>Excess</dt><dd class="num">{{ alert.excess | signed }}</dd>
       <dt>Ratio</dt><dd class="num">{{ alert.ratio_label or "—" }}</dd>
-      <dt>Time</dt><dd class="num" title="{{ alert.created_at }}">{{ alert.created_at }}</dd>
+      <dt>Time UTC</dt><dd class="num" title="{{ alert.created_at }}">{{ alert.created_at }}</dd>
       <dt>Sequence</dt><dd class="num">{% if alert.ingest_sequence is not none %}{{ alert.ingest_sequence }}{% else %}—{% endif %}</dd>
     </dl>
     <p>{{ alert.detail }}</p>
@@ -38,8 +38,8 @@
     {% if not audit_status %}
     <h2>Trades at sequence {% if alert.ingest_sequence is not none %}{{ alert.ingest_sequence }}{% else %}—{% endif %}</h2>
     <table>
-      <caption>Trades at this sequence</caption>
-      <thead><tr><th scope="col">Time</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Id</th></tr></thead>
+      <caption>Trades stored at this sequence</caption>
+      <thead><tr><th scope="col">Time UTC</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Id</th></tr></thead>
       <tbody>
         {% for trade in stored.trades %}
         <tr>
@@ -49,7 +49,7 @@
           <td class="num">{{ trade.ingestion_id }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="4">No trades at this sequence.</td></tr>
+        <tr><td colspan="4">No trades stored at this sequence.</td></tr>
         {% endfor %}
       </tbody>
     </table>

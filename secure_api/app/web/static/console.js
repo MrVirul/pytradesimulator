@@ -36,6 +36,23 @@
     return null;
   }
 
+  function errorMessage(status, retryAfter) {
+    var code = Number(status);
+    if (code === 429) {
+      var wait = Math.max(1, parseInt(retryAfter, 10) || 1);
+      return "Limit reached, retrying in " + wait + " s";
+    }
+    if (code === 403) return "Missing permission";
+    if (code === 400) return "Check the filter values";
+    return "Request failed, try again";
+  }
+
+  function errorIdFor(elt) {
+    var form = elt && elt.closest ? elt.closest("form") : null;
+    if (!form && elt && elt.tagName && elt.tagName.toLowerCase() === "form") form = elt;
+    return form && form.getAttribute ? (form.getAttribute("data-error") || "") : "";
+  }
+
   var scrolls = {};
   var retryLeft = 0;
   var retryTimer = null;
@@ -241,6 +258,29 @@
   function isPoll(event) {
     var elt = sourceOf(event);
     return !!(elt && elt.hasAttribute && elt.hasAttribute("data-poll"));
+  }
+
+  function setFormError(elt, text) {
+    var id = errorIdFor(elt);
+    if (!id) return;
+    var node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = text;
+  }
+
+  function onFormError(event) {
+    if (isPoll(event)) return;
+    var xhr = event.detail && event.detail.xhr;
+    var status = xhr ? xhr.status : 0;
+    var retry = xhr && xhr.getResponseHeader ? xhr.getResponseHeader("Retry-After") : null;
+    setFormError(sourceOf(event), errorMessage(status, retry));
+  }
+
+  function onFormSuccess(event) {
+    if (isPoll(event)) return;
+    var detail = event.detail || {};
+    if (!detail.successful) return;
+    setFormError(sourceOf(event), "");
   }
 
   function startBackoff(seconds) {
@@ -659,6 +699,9 @@
     document.body.addEventListener("htmx:sendError", function (event) {
       if (isPoll(event)) setPoll("DOWN", "down", "down");
     });
+    document.body.addEventListener("htmx:responseError", onFormError);
+    document.body.addEventListener("htmx:sendError", onFormError);
+    document.body.addEventListener("htmx:afterRequest", onFormSuccess);
     setInterval(function () {
       tickAges();
       tickSession();
@@ -671,6 +714,8 @@
     formatAge: formatAge,
     formatClock: formatClock,
     pollLabel: pollLabel,
+    errorMessage: errorMessage,
+    errorIdFor: errorIdFor,
     tickClass: tickClass,
     newerCount: function (ids, maxId) {
       var rows = ids.map(function (id) {

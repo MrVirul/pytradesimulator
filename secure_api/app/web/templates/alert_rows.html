@@ -5,6 +5,14 @@
   hx-include="#alert-filters"
   hx-trigger="every 10s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
   hx-swap="outerHTML">
+  {% from "macros/ui.html" import filter_summary %}
+  {% set active = [] %}
+  {% if symbol %}{% set _ = active.append("Symbol: " ~ symbol) %}{% endif %}
+  {% if rule_name %}{% set _ = active.append("Rule: " ~ rule_name) %}{% endif %}
+  {% if severity %}{% set _ = active.append("Severity: " ~ severity) %}{% endif %}
+  {% if created_from %}{% set _ = active.append("From: " ~ created_from ~ " UTC") %}{% endif %}
+  {% if created_to %}{% set _ = active.append("To: " ~ created_to ~ " UTC") %}{% endif %}
+  {{ filter_summary(active, "/ui/alerts") }}
   <table class="alerts">
     <caption>Alerts <span id="alerts-new"></span></caption>
     <colgroup>
@@ -19,7 +27,7 @@
     </colgroup>
     <thead>
       <tr>
-        <th scope="col">Time</th>
+        <th scope="col">Time UTC</th>
         <th scope="col">Rule</th>
         <th scope="col">Symbol</th>
         <th scope="col">Severity</th>
@@ -42,7 +50,7 @@
         <td class="clip" title="{{ alert.detail }}">{{ alert.detail }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="8">No alerts match this filter.</td></tr>
+      <tr><td colspan="8">No alerts match this filter. Adjust or clear the filters.</td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -155,13 +155,14 @@ def _viewer_can_audit(request):
     return allows(claims.get("roles"), "audit:read")
 
 
-def render_error(request, status, message):
+def render_error(request, status, message, retry_after=None):
     hx = request.headers.get("hx-request", "").lower() == "true"
     name = "error_fragment.html" if hx else "error.html"
     context = {
         "title": "Request failed",
         "message": message,
         "status": status,
+        "retry_after": retry_after,
         "request_id": getattr(request.state, "request_id", "") or "",
         "can_audit": False,
     }
@@ -193,7 +194,7 @@ def _fragment_id(request):
 def _limit_response(request, retry_after):
     retry = max(1, int(retry_after or 60))
     if request.headers.get("hx-request", "").lower() != "true":
-        response = render_error(request, 429, "Limit reached, retrying in {0} s".format(retry))
+        response = render_error(request, 429, "Limit reached, retrying in {0} s".format(retry), retry)
         response.headers["Retry-After"] = str(retry)
         return response
     target = request.url.path
@@ -970,7 +971,7 @@ def _audit_context(request, request_id, client_id, action, decision, status_code
             )
         ],
         "request_id": request_id,
-        "client_id": client_id,
+        "filter_client": client_id,
         "action": action,
         "decision": decision,
         "status_code": status_code,
@@ -984,10 +985,10 @@ def security_page(request: Request, minutes: int = 15):
     blocked = _guard(request, "audit:read")
     if blocked is not None:
         return blocked
-    context = _audit_context(request, "", "", "", "", "", "", "")
-    context["filter_client"] = context.pop("client_id")
-    context["report"] = _security_view(security_metrics(minutes))
-    context["as_of"] = datetime.now(timezone.utc).strftime("%H:%M:%S")
+    context = {
+        "report": _security_view(security_metrics(minutes)),
+        "as_of": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+    }
     return page(request, "security.html", request.state.session_row, context)
 
 
@@ -1008,7 +1009,6 @@ def audit_page(
     context = _audit_context(
         request, request_id, client_id, action, decision, status_code, recorded_from, recorded_to
     )
-    context["filter_client"] = context.pop("client_id")
     return page(request, "audit.html", request.state.session_row, context)
 
 

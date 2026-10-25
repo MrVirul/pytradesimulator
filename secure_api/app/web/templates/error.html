@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<section class="card">
+<section class="card error-card">
   <p class="status-code">{{ status }}</p>
   <h1>{{ title }}</h1>
   <p>{{ message }}</p>
   <p>Request {% if can_audit and request_id %}<a class="mono" href="/ui/audit?request_id={{ request_id }}">{{ request_id }}</a>{% else %}<span class="mono">{{ request_id }}</span>{% endif %}</p>
-  <p><a href="/ui">Back</a></p>
+  {% if status == 401 %}
+  <p><a href="/ui/login/start">Sign in again</a></p>
+  {% elif status == 429 %}
+  <p><a href="/ui/market">Back</a>{% if retry_after %} Retry in {{ retry_after }} s.{% endif %}</p>
+  {% else %}
+  <p><a href="/ui/market">Back to Market</a></p>
+  {% endif %}
 </section>
 {% endblock %}

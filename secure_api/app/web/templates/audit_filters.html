@@ -1,4 +1,5 @@
 <form id="audit-filters" class="filter-bar" method="get" action="/ui/audit"
+      data-error="audit-filter-error"
       hx-get="/ui/audit/rows" hx-trigger="change, submit"
       hx-target="#audit-rows" hx-swap="outerHTML">
   <label for="request_id">Request id</label>
@@ -20,9 +21,10 @@
     <option value="{{ code }}" {% if status_code == code %}selected{% endif %}>{{ code }}</option>
     {% endfor %}
   </select>
-  <label for="recorded_from">From</label>
-  <input id="recorded_from" name="recorded_from" type="datetime-local" value="{{ recorded_from }}">
-  <label for="recorded_to">To</label>
-  <input id="recorded_to" name="recorded_to" type="datetime-local" value="{{ recorded_to }}">
+  <label for="recorded_from">From (UTC)</label>
+  <input id="recorded_from" name="recorded_from" type="datetime-local" value="{{ recorded_from }}" title="Times are UTC">
+  <label for="recorded_to">To (UTC)</label>
+  <input id="recorded_to" name="recorded_to" type="datetime-local" value="{{ recorded_to }}" title="Times are UTC">
   <button type="submit">Filter</button>
 </form>
+<p class="form-error" id="audit-filter-error" role="alert"></p>
