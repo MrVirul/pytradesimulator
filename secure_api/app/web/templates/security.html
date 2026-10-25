@@ -37,7 +37,7 @@
         <h2>Top clients</h2>
         <table>
           <caption>Top clients</caption>
-          <th scope="col"ead><tr><th scope="col">Client</th><th scope="col">Count</th><th scope="col">Share</th></tr></thead>
+          <thead><tr><th scope="col">Client</th><th scope="col">Count</th><th scope="col">Share</th></tr></thead>
           <tbody>
             {% for client in report.clients %}
             <tr>
@@ -55,7 +55,7 @@
         <h2>Policies</h2>
         <table>
           <caption>Policies</caption>
-          <th scope="col"ead><tr><th scope="col">Subject</th><th scope="col">Category</th><th scope="col">Used</th><th scope="col"></th><th scope="col">Window</th></tr></thead>
+          <thead><tr><th scope="col">Subject</th><th scope="col">Category</th><th scope="col">Used</th><th scope="col"><span class="sr-only">Actions</span></th><th scope="col">Window</th></tr></thead>
           <tbody>
             {% for policy in report.policies %}
             <tr>

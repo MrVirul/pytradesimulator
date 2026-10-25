@@ -49,8 +49,8 @@
       {% endif %}
       <table>
         <caption>Rules</caption>
-        <th scope="col"ead>
-          <tr><th scope="col">Name</th><th scope="col">Window</th><th scope="col">Threshold</th><th scope="col">Enabled</th>{% if can_write_rules %}<th scope="col"></th>{% endif %}</tr>
+        <thead>
+          <tr><th scope="col">Name</th><th scope="col">Window</th><th scope="col">Threshold</th><th scope="col">Enabled</th>{% if can_write_rules %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr>
         </thead>
         <tbody>
           {% for rule in rules %}
@@ -76,7 +76,7 @@
       <summary>Timeline</summary>
       <table>
         <caption>Timeline</caption>
-        <th scope="col"ead><tr><th scope="col">Time</th><th scope="col">Kind</th><th scope="col">Label</th></tr></thead>
+        <thead><tr><th scope="col">Time</th><th scope="col">Kind</th><th scope="col">Label</th></tr></thead>
         <tbody>
           {% for event in events %}
           <tr>

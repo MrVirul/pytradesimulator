@@ -41,7 +41,7 @@
   <div class="tape-panel" data-keep-scroll id="tape-{{ symbol }}">
     <table class="tape">
       <caption>Recent trades</caption>
-      <th scope="col"ead><tr><th scope="col">Time UTC</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Seq</th></tr></thead>
+      <thead><tr><th scope="col">Time UTC</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Seq</th></tr></thead>
       <tbody>
         {% for trade in trades %}
         <tr data-id="{{ trade.ingestion_id }}" title="{{ trade.ingestion_id }}">

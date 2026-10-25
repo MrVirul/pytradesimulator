@@ -268,7 +268,7 @@ dialog {
   box-shadow: var(--shadow-elevated);
 }
 
-.visually-hidden {
+.visually-hidden, .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
