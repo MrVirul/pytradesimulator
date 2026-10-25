@@ -92,6 +92,39 @@ def test_nav_current_uses_path_prefixes():
     assert not nav_current("/ui/scenarios", "/ui/security")
 
 
+def test_nav_current_on_an_alert_detail(monkeypatch):
+    _open(monkeypatch, "surveillance_analyst")
+    monkeypatch.setenv("RATE_LIMIT_REQUIRED", "0")
+    monkeypatch.setattr(
+        "secure_api.app.web.routes.get_alert",
+        lambda alert_id: {
+            "id": 7,
+            "rule_name": "spread_widening",
+            "symbol": "SPREAD",
+            "severity": "warning",
+            "observed_value": 10.0,
+            "threshold": 5.0,
+            "created_at": "2026-10-23T00:00:00+00:00",
+            "detail": "spread 10",
+            "ingest_sequence": 3,
+        },
+    )
+    monkeypatch.setattr(
+        "secure_api.app.web.routes.alert_context",
+        lambda alert: {"book": None, "current_sequence": 9, "trades": []},
+    )
+    response = _client().get(
+        "/ui/alerts/7",
+        headers={"Cookie": "pytradesim_session=sess"},
+    )
+    assert response.status_code == 200
+    current = re.findall(
+        r'href="([^"]+)"[^>]*aria-current="page"',
+        response.text,
+    )
+    assert current == ["/ui/alerts"]
+
+
 def test_tables_are_captioned_and_headers_are_scoped():
     root = Path(__file__).resolve().parents[1] / "app" / "web"
     book = (root / "templates" / "book.html").read_text(encoding="utf-8")
