@@ -86,3 +86,9 @@ def test_tables_are_captioned_and_headers_are_scoped():
         for header in re.findall(r"<th\b[^>]*>", text):
             assert 'scope="col"' in header
         assert text.count("<caption") >= text.count("<table")
+        # The M9.8 version of this test only searched for scope="col" in the
+        # opening tag, so "<th scope=\"col\"ead>" passed. Reject the malformed
+        # attribute and require a real open and close for every header row.
+        assert 'scope="col"ead' not in text
+        if "<table" in text:
+            assert "<thead" in text and "</thead>" in text

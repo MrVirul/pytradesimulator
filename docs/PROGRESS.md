@@ -86,6 +86,19 @@ Spec: `docs/UI_MASTER_PROMPT.md`. Stay on FastAPI, Jinja2, and HTMX. No order ti
 - **M9.8** Keyboard and accessibility pass (prompt sections 3.5 and 3.6). Status: `done`. Exit: the shortcuts in the prompt work from the keyboard, and the check result is in the log.
 - **M9.9** Evidence. Status: `done`. Exit: `pytest secure_api/tests` is green; `docker run --rm pytradesim test` is still 22 passed; after `docker compose up -d --build`, sign-in as `market`, `analyst`, and `admin` is recorded with the nav each role sees, a forced 429, a scenario run, and the 204 count. Note whether a graphical browser was driven.
 
+## Milestone 10 — UI hardening
+
+Spec: `docs/UI_HARDENING_PROMPT.md`. Correctness, layout, focus, and accessibility fixes only. No features, no redesign, no new endpoints or data fields.
+
+- **M10.0** Safety net: structural markup test and an optional Playwright layout test. Status: `in-progress`. Exit: the structural test is wired into pytest and is red against the malformed table headers before M10.1.
+- **M10.1** Table headers: replace every `<th scope="col"ead>` with `<thead>`, name empty header cells, confirm sticky headers. Status: `todo`. Exit: M10.0-A is green and every table has a real header.
+- **M10.2** Responsive shell and overflow: wrapping top bar and filter bar, `min-width: 0` tracks, capped KPI strip, explicit alerts and audit column widths. Status: `todo`. Exit: no page-level horizontal scroll at 1440 through 400 where a browser exists.
+- **M10.3** Focus survives polling: stable ids on swapped controls and rows, focus restore around `outerHTML` swaps, one roving `tabindex`. Status: `todo`. Exit: a poll leaves focus on the same alert row.
+- **M10.4** Honest announcements and state: one `#poll-announce` live region, a single session countdown format, paused Refresh URL, used-based scenario meter, prefix nav current state, honest feed and poll cells. Status: `todo`. Exit: announcements happen only on state changes and every meter states what it measures.
+- **M10.5** Interaction states and tokens: defined custom properties only, hover/active/disabled/focus-visible states, one dialog block, contrast recorded. Status: `todo`. Exit: no undefined `var(--x)` and disabled controls use `--text-3` plus a dashed border.
+- **M10.6** Honest filters, errors, and labels: UTC labels, non-poll HTMX errors, Clear and active-filter text, Security links instead of an embedded audit search, market header `<dl>`, ladder side labels, bounded error and empty states, dialog label, descriptive captions. Status: `todo`. Exit: forms say what they do and failures are visible without losing the last good data.
+- **M10.7** Evidence: full pytest counts, host legacy suite, browser layout run when available, contrast ratios, and per-role nav check when Docker is available. Status: `todo`. Exit: the counts and what was not run are in the log.
+
 ## Baseline results
 
 Recorded 2026-10-22.
