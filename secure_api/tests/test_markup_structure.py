@@ -8,6 +8,7 @@ and ``aria-labelledby`` targets.
 """
 
 from html.parser import HTMLParser
+import re
 
 from fastapi.testclient import TestClient
 
@@ -523,3 +524,44 @@ def test_error_page_has_valid_structure(monkeypatch):
     errors = StructureParser("/ui/audit 403")
     errors.feed(response.text)
     assert not errors.finish()
+
+
+def _attr(tag_text, name):
+    found = re.search(r'\b{0}="([^"]*)"'.format(name), tag_text)
+    return found.group(1) if found else ""
+
+
+def test_polled_rows_and_controls_have_stable_ids(monkeypatch):
+    prefixes = {
+        "books": "books-",
+        "alerts": "alert-",
+        "audit": "audit-",
+        "runs": "run-",
+        "scenario": "scenario-",
+        "watch": "watch-",
+        "login": "login-",
+    }
+    failures = []
+    for label, text in _pages(monkeypatch):
+        for row in re.findall(r"<tr\b[^>]*data-row=\"[^\"]*\"[^>]*>", text, re.S):
+            kind = _attr(row, "data-row")
+            row_id = _attr(row, "id")
+            prefix = prefixes.get(kind, kind)
+            if not row_id.startswith(prefix):
+                failures.append(
+                    "{0}: {1} row has id {2!r}, expected {3}*".format(
+                        label, kind, row_id, prefix
+                    )
+                )
+        for button in re.findall(r"<button\b[^>]*data-copy=\"[^\"]*\"[^>]*>", text):
+            if not _attr(button, "id"):
+                failures.append("{0}: copy button has no id".format(label))
+        for key in ("pause", "refresh"):
+            pattern = r"<a\b[^>]*data-key=\"{0}\"[^>]*>".format(key)
+            for control in re.findall(pattern, text):
+                if not _attr(control, "id"):
+                    failures.append(
+                        "{0}: {1} control has no id".format(label, key)
+                    )
+    assert not failures, "\n".join(failures)
+

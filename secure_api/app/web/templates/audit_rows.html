@@ -27,11 +27,11 @@
     </thead>
     <tbody>
       {% for event in events %}
-      <tr data-row="audit" tabindex="{{ 0 if loop.first else -1 }}">
+      <tr id="audit-{{ event.request_id or loop.index }}" data-row="audit" tabindex="{{ 0 if loop.first else -1 }}">
         <td class="num" title="{{ event.recorded_at }}">{{ event.recorded_at | tsd }}</td>
         <td>
           <a class="mono" href="/ui/audit?request_id={{ event.request_id }}">{{ event.request_id }}</a>
-          <button type="button" data-copy="{{ event.request_id }}" aria-keyshortcuts="c">Copy</button>
+          <button type="button" id="copy-{{ event.request_id or loop.index }}" data-copy="{{ event.request_id }}" aria-keyshortcuts="c">Copy</button>
         </td>
         <td>{{ event.client_id }}</td>
         <td>{{ event.action }}</td>

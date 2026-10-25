@@ -31,7 +31,7 @@
     </thead>
     <tbody>
       {% for alert in alerts %}
-      <tr data-id="{{ alert.id }}" data-row="alerts" tabindex="{{ 0 if loop.first else -1 }}">
+      <tr id="alert-{{ alert.id }}" data-id="{{ alert.id }}" data-row="alerts" tabindex="{{ 0 if loop.first else -1 }}">
         <td class="num" title="{{ alert.created_at }}">{{ alert.created_at | tsd }}</td>
         <td><a href="/ui/alerts/{{ alert.id }}">{{ alert.rule_name }}</a></td>
         <td>{{ alert.symbol or "—" }}</td>

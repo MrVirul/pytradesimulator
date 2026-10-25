@@ -22,12 +22,12 @@
     </thead>
     <tbody>
       {% for user in users %}
-      <tr data-row="login" tabindex="{{ 0 if loop.first else -1 }}">
+      <tr id="login-{{ user.username }}" data-row="login" tabindex="{{ 0 if loop.first else -1 }}">
         <td class="mono">{{ user.username }}</td>
         <td>{{ user.role }}</td>
         <td>{{ user.opens }}</td>
         {% if show_passwords %}
-        <td class="mono">{{ user.password }} <button type="button" data-copy="{{ user.password }}">Copy</button></td>
+        <td class="mono">{{ user.password }} <button type="button" id="copy-{{ user.username }}" data-copy="{{ user.password }}">Copy</button></td>
         {% endif %}
         <td><a href="/ui/login/start?user={{ user.username }}">Sign in as {{ user.username }}</a></td>
       </tr>

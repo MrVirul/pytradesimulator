@@ -24,7 +24,7 @@
         <tbody>
           {% for scenario in scenarios %}
           {% set state = last_status.get(scenario.name, "not run") %}
-          <tr data-row="scenario" tabindex="{{ 0 if loop.first else -1 }}">
+          <tr id="scenario-{{ scenario.name }}" data-row="scenario" tabindex="{{ 0 if loop.first else -1 }}">
             <td class="mono">{{ scenario.name }}</td>
             <td>{{ scenario.about }}</td>
             <td class="orders">
@@ -62,7 +62,7 @@
           <thead><tr><th scope="col">Time</th><th scope="col">Scenario</th><th scope="col">Status</th><th scope="col">Request</th></tr></thead>
           <tbody>
             {% for item in history %}
-            <tr data-row="runs" tabindex="{{ 0 if loop.first else -1 }}">
+            <tr id="run-{{ item.id }}" data-row="runs" tabindex="{{ 0 if loop.first else -1 }}">
               <td class="num" title="{{ item.created_at }}">{{ item.created_at | tsd }}</td>
               <td class="mono">{{ item.scenario }}</td>
               <td><span class="pill run-{{ item.status }}">{{ item.status }}</span></td>

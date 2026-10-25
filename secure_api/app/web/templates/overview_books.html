@@ -19,7 +19,7 @@
     </thead>
     <tbody>
       {% for tile in symbols %}
-      <tr data-row="books" tabindex="{{ 0 if loop.first else -1 }}">
+      <tr id="books-{{ tile.symbol }}" data-row="books" tabindex="{{ 0 if loop.first else -1 }}">
         <td><a href="/ui/market?symbol={{ tile.symbol }}">{{ tile.symbol }}</a></td>
         <td><span class="pill {{ tile.status }}">{{ tile.status }}</span></td>
         <td class="num" data-k="ovw:{{ tile.symbol }}:bid" data-kind="price" data-v="{{ tile.best_bid if tile.best_bid is not none else '' }}">{{ tile.best_bid | price }}</td>

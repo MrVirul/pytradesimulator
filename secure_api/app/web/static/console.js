@@ -39,6 +39,140 @@
   var scrolls = {};
   var retryLeft = 0;
   var retryTimer = null;
+  var focusState = null;
+
+  function isPollTarget(target) {
+    return !!(target && target.hasAttribute && target.hasAttribute("data-poll"));
+  }
+
+  function focusSnapshot(scope) {
+    var ids = [];
+    var rows = [];
+    if (!scope || !scope.querySelectorAll) return { ids: ids, rows: rows };
+    var nodes = scope.querySelectorAll("[id]");
+    for (var i = 0; i < nodes.length; i++) ids.push(nodes[i].id);
+    var rowNodes = scope.querySelectorAll("[data-row]");
+    for (var r = 0; r < rowNodes.length; r++) {
+      rows.push({ id: rowNodes[r].id, kind: rowNodes[r].getAttribute("data-row") });
+    }
+    return { ids: ids, rows: rows };
+  }
+
+  function focusPlan(state, after) {
+    var none = { targetId: "", rowKind: "", rowIndex: -1, roving: true, restore: false, sameId: false, typing: false };
+    if (!state) return none;
+    var ids = (after && after.ids) || [];
+    if (state.id && ids.indexOf(state.id) !== -1) {
+      return {
+        targetId: state.id,
+        rowKind: state.rowKind || "",
+        rowIndex: state.rowIndex,
+        roving: true,
+        restore: true,
+        sameId: true,
+        typing: !!state.typing,
+      };
+    }
+    if (!state.rowKind) return none;
+    var rows = [];
+    var all = (after && after.rows) || [];
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].kind === state.rowKind) rows.push(all[i]);
+    }
+    if (!rows.length) {
+      return { targetId: "", rowKind: state.rowKind, rowIndex: -1, roving: true, restore: false, sameId: false, typing: false };
+    }
+    var index = state.rowIndex;
+    if (index < 0 || index >= rows.length) index = rows.length - 1;
+    return {
+      targetId: rows[index].id,
+      rowKind: state.rowKind,
+      rowIndex: index,
+      roving: true,
+      restore: !!rows[index].id,
+      sameId: false,
+      typing: false,
+    };
+  }
+
+  function rovingIndex(ids, focusedId) {
+    if (!ids || !ids.length) return -1;
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i] === focusedId) return i;
+    }
+    return 0;
+  }
+
+  function captureFocus(target) {
+    if (!isPollTarget(target) || !target.contains) return null;
+    var active = document.activeElement;
+    if (!active || active === document.body || !target.contains(active)) return null;
+    var row = active.closest ? active.closest("[data-row]") : null;
+    var tag = active.tagName ? active.tagName.toLowerCase() : "";
+    var typing = tag === "input" || tag === "textarea" || tag === "select";
+    var rowIndex = -1;
+    if (row) {
+      var group = row.parentNode ? row.parentNode.querySelectorAll("[data-row='" + row.getAttribute("data-row") + "']") : [];
+      for (var i = 0; i < group.length; i++) {
+        if (group[i] === row) rowIndex = i;
+      }
+    }
+    var start = typing && typeof active.selectionStart === "number" ? active.selectionStart : null;
+    var end = typing && typeof active.selectionEnd === "number" ? active.selectionEnd : null;
+    return {
+      id: active.id || "",
+      rowKind: row ? row.getAttribute("data-row") : "",
+      rowIndex: rowIndex,
+      typing: typing,
+      selectionStart: start,
+      selectionEnd: end,
+    };
+  }
+
+  function activeRowId(scope) {
+    var active = document.activeElement;
+    var row = active && active.closest ? active.closest("[data-row]") : null;
+    if (row && scope && scope.contains(row)) return row.id;
+    return "";
+  }
+
+  function applyRoving(scope, focusedId) {
+    if (!scope || !scope.querySelectorAll) return;
+    var groups = {};
+    var rows = scope.querySelectorAll("[data-row]");
+    for (var i = 0; i < rows.length; i++) {
+      var kind = rows[i].getAttribute("data-row");
+      if (!groups[kind]) groups[kind] = [];
+      groups[kind].push(rows[i]);
+    }
+    Object.keys(groups).forEach(function (name) {
+      var group = groups[name];
+      var ids = group.map(function (row) { return row.id; });
+      var keep = rovingIndex(ids, focusedId);
+      for (var k = 0; k < group.length; k++) {
+        group[k].setAttribute("tabindex", k === keep ? "0" : "-1");
+      }
+    });
+  }
+
+  function restoreFocus(state) {
+    if (!state || !state.targetId) return;
+    var scope = document.getElementById(state.targetId);
+    if (!scope) return;
+    var plan = focusPlan(state, focusSnapshot(scope));
+    var target = plan.targetId ? document.getElementById(plan.targetId) : null;
+    if (plan.restore && target && target.focus && document.activeElement !== target) {
+      target.focus({ preventScroll: true });
+    }
+    if (plan.sameId && plan.typing && target && target === document.activeElement && state.selectionStart !== null && target.setSelectionRange) {
+      try {
+        target.setSelectionRange(state.selectionStart, state.selectionEnd);
+      } catch (error) {
+        /* Some input types do not expose a text selection. */
+      }
+    }
+    applyRoving(scope, activeRowId(scope));
+  }
 
   function serverOffset() {
     var raw = document.body && document.body.getAttribute("data-server-now");
@@ -459,6 +593,7 @@
       rememberScroll();
       onResponse(event);
       var detail = event.detail || {};
+      focusState = detail.shouldSwap ? captureFocus(detail.target) : null;
       if (detail.shouldSwap && detail.target) {
         tickState = {
           keys: snapshotKeys(detail.target),
@@ -470,11 +605,19 @@
         tickState = null;
       }
     });
-    document.body.addEventListener("htmx:afterSwap", restoreScroll);
+    document.body.addEventListener("htmx:afterSwap", function () {
+      restoreScroll();
+      restoreFocus(focusState);
+      focusState = null;
+    });
     document.body.addEventListener("htmx:afterSettle", function () {
       var pending = tickState;
       tickState = null;
       applyTicks(pending);
+      // Out-of-band watch rows are swapped outside the polled target. Apply
+      // the roving tabindex across the page so exactly one row per group has
+      // tabindex="0" after every swap.
+      applyRoving(document, activeRowId(document));
     });
     document.body.addEventListener("htmx:sendError", function (event) {
       if (isPoll(event)) setPoll("DOWN", "down");
@@ -500,6 +643,8 @@
     },
     newCaption: newCaption,
     handleKey: handleKey,
+    focusPlan: focusPlan,
+    rovingIndex: rovingIndex,
     start: start,
   };
 
