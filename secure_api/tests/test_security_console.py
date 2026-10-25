@@ -85,6 +85,12 @@ def test_security_page_shows_counts_and_links_the_request(monkeypatch):
     assert 'data-copy="req-demo-limit-2"' in text
     assert "60s" in text
     assert "width: 75%" in text
+    assert 'role="progressbar"' in text
+    assert 'aria-valuemax="60"' in text
+    assert 'aria-valuenow="4"' in text
+    assert 'aria-label="* market_data"' in text
+    assert '<span id="poll-state" data-tone="pending">static</span>' in text
+    assert "FIX off (at load)" in text
     assert 'data-tone="muted"' in text
     assert 'data-tone="deny"' in text
     assert 'data-tone="warn"' in text

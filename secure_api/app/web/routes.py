@@ -76,6 +76,24 @@ NAV = (
     ("Scenarios", "/ui/scenarios", "scenarios:run"),
 )
 
+NAV_PREFIXES = {
+    "/ui": ("/ui",),
+    "/ui/market": ("/ui/market", "/ui/market-data"),
+    "/ui/alerts": ("/ui/alerts",),
+    "/ui/security": ("/ui/security", "/ui/audit"),
+    "/ui/scenarios": ("/ui/scenarios",),
+}
+
+
+def nav_current(path, href):
+    """Mark the nav item for a detail path, without making /ui a catch-all."""
+    if href == "/ui":
+        return path == "/ui"
+    for prefix in NAV_PREFIXES.get(href, (href,)):
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+    return False
+
 
 def shell(row, request):
     minutes = 0
@@ -86,10 +104,11 @@ def shell(row, request):
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         minutes = max(0, int((expires - datetime.now(timezone.utc)).total_seconds() // 60))
+    path = request.url.path
     visible = []
     for label, href, permission in NAV:
         if signed_in and allows(roles, permission):
-            visible.append((label, href))
+            visible.append((label, href, nav_current(path, href)))
     feed = {"logged_on": False, "last_message_at": None}
     if os.environ.get("DATABASE_URL"):
         try:
@@ -105,8 +124,10 @@ def shell(row, request):
         "expires_at": expires.isoformat() if expires is not None else "",
         "server_now": datetime.now(timezone.utc).isoformat(),
         "feed": feed,
+        "feed_at_load": path != "/ui/market",
+        "static_page": path in ("/ui/audit", "/ui/security"),
         "nav": visible,
-        "path": request.url.path,
+        "path": path,
     }
 
 

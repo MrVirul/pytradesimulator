@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block content %}
+{% from "macros/ui.html" import meter %}
 <h1>Overview</h1>
 <div class="overview">
   <section class="card books-panel">
@@ -23,7 +24,7 @@
           <tr>
             <td>{{ limit.category }}</td>
             <td class="num">{{ limit.used }} of {{ limit.allowed }}</td>
-            <td><span class="meter"><span class="meter-fill" data-tone="{{ limit.tone }}" style="width: {{ limit.fill }}%"></span></span></td>
+            <td>{{ meter(limit.used, limit.allowed, limit.tone, limit.fill, limit.category ~ " requests") }}</td>
             <td class="num">{% if limit.resets_at %}{{ limit.resets_at | ts }}{% else %}—{% endif %}</td>
           </tr>
           {% else %}

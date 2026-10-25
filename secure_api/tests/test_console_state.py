@@ -110,6 +110,16 @@ if (!typing.restore || !typing.typing || typing.targetId !== "symbol") process.e
 if (context.pts.rovingIndex([], "x") !== -1) process.exit(46);
 if (context.pts.rovingIndex(["a", "b"], "b") !== 1) process.exit(47);
 if (context.pts.rovingIndex(["a", "b"], "x") !== 0) process.exit(48);
+if (context.pts.sessionLabel(121) !== "2 min left") process.exit(50);
+if (context.pts.sessionLabel(120) !== "2:00 left") process.exit(51);
+if (context.pts.sessionLabel(30) !== "0:30 left") process.exit(52);
+if (context.pts.sessionLabel(0) !== "0:00 left") process.exit(53);
+if (context.pts.announcePlan("ok", "ok", 9) !== "") process.exit(54);
+if (context.pts.announcePlan("retry", "retry", 8) !== "") process.exit(55);
+if (context.pts.announcePlan("ok", "retry", 9).indexOf("9 seconds") < 0) process.exit(56);
+if (context.pts.announcePlan("retry", "ok", 0) !== "Polling resumed.") process.exit(57);
+if (context.pts.announcePlan("pending", "ok", 0) !== "") process.exit(58);
+if (context.pts.announcePlan("ok", "down", 0).indexOf("last good data") < 0) process.exit(59);
 """
     result = subprocess.run(
         [node, "-e", program, str(SCRIPT)],

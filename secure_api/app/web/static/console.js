@@ -40,6 +40,8 @@
   var retryLeft = 0;
   var retryTimer = null;
   var focusState = null;
+  var announceState = "pending";
+  var sessionMarks = {};
 
   function isPollTarget(target) {
     return !!(target && target.hasAttribute && target.hasAttribute("data-poll"));
@@ -182,11 +184,36 @@
     return parsed - Date.now();
   }
 
-  function setPoll(text, tone) {
+  function announce(text) {
+    var node = document.getElementById("poll-announce");
+    if (node) node.textContent = text;
+  }
+
+  function announcePlan(previous, next, retry) {
+    if (!next || previous === next) return "";
+    if (next === "retry") {
+      var wait = Math.max(1, Number(retry) || 1);
+      return "Rate limited. Retrying in " + wait + " seconds.";
+    }
+    if (next === "denied") return "Polling denied. Missing permission.";
+    if (next === "down") return "Polling failed. Showing the last good data.";
+    if (next === "paused") return "Polling paused.";
+    if (next === "ok" && (previous === "retry" || previous === "down" || previous === "denied")) {
+      return "Polling resumed.";
+    }
+    return "";
+  }
+
+  function setPoll(text, tone, state) {
     var cell = document.getElementById("poll-state");
     if (!cell) return;
     cell.textContent = text;
     cell.setAttribute("data-tone", tone);
+    if (state) {
+      var message = announcePlan(announceState, state, retryLeft);
+      if (message) announce(message);
+      announceState = state;
+    }
   }
 
   function rememberScroll() {
@@ -219,7 +246,7 @@
   function startBackoff(seconds) {
     retryLeft = seconds;
     document.body.setAttribute("data-backoff", String(retryLeft));
-    setPoll("RETRY " + retryLeft + "s", "warn");
+    setPoll("RETRY " + retryLeft + "s", "warn", "retry");
     if (retryTimer) clearInterval(retryTimer);
     retryTimer = setInterval(function () {
       retryLeft -= 1;
@@ -227,11 +254,11 @@
         clearInterval(retryTimer);
         retryTimer = null;
         document.body.removeAttribute("data-backoff");
-        setPoll("OK " + formatClock(new Date(Date.now() + serverOffset())), "ok");
+        setPoll("OK " + formatClock(new Date(Date.now() + serverOffset())), "ok", "ok");
         return;
       }
       document.body.setAttribute("data-backoff", String(retryLeft));
-      setPoll("RETRY " + retryLeft + "s", "warn");
+      setPoll("RETRY " + retryLeft + "s", "warn", "retry");
     }, 1000);
   }
 
@@ -243,10 +270,10 @@
       return;
     }
     if (label.state === "ok") {
-      setPoll("OK " + formatClock(new Date(Date.now() + serverOffset())), "ok");
+      setPoll("OK " + formatClock(new Date(Date.now() + serverOffset())), "ok", "ok");
       return;
     }
-    setPoll(label.text, label.state === "denied" ? "deny" : "down");
+    setPoll(label.text, label.state === "denied" ? "deny" : "down", label.state === "denied" ? "denied" : "down");
   }
 
   function onResponse(event) {
@@ -364,6 +391,11 @@
     }
   }
 
+  function sessionLabel(left) {
+    if (left > 120) return Math.floor(left / 60) + " min left";
+    return Math.floor(left / 60) + ":" + pad(left % 60, 2) + " left";
+  }
+
   function tickSession() {
     var node = document.getElementById("session-left");
     if (!node) return;
@@ -371,15 +403,20 @@
     if (isNaN(expires)) return;
     var left = Math.floor((expires - (Date.now() + serverOffset())) / 1000);
     if (left < 0) left = 0;
-    var minutes = Math.floor(left / 60);
-    var seconds = left % 60;
-    node.textContent = minutes + ":" + pad(seconds, 2);
-    if (left <= 120) {
-      node.setAttribute("data-tone", "warn");
-      node.setAttribute("aria-live", "polite");
-    } else {
-      node.removeAttribute("data-tone");
-      node.removeAttribute("aria-live");
+    node.textContent = sessionLabel(left);
+    if (left <= 120) node.setAttribute("data-tone", "warn");
+    else node.removeAttribute("data-tone");
+    if (left <= 120 && !sessionMarks["2m"]) {
+      announce("Session expires in 2 minutes.");
+      sessionMarks["2m"] = true;
+    }
+    if (left <= 30 && !sessionMarks["30s"]) {
+      announce("Session expires in 30 seconds.");
+      sessionMarks["30s"] = true;
+    }
+    if (left <= 0 && !sessionMarks["expired"]) {
+      announce("Session expired.");
+      sessionMarks["expired"] = true;
     }
   }
 
@@ -515,7 +552,7 @@
 
   function showPaused() {
     if (!document.body || document.body.hasAttribute("data-backoff")) return;
-    if (document.querySelector("[data-paused='1']")) setPoll("PAUSED", "warn");
+    if (document.querySelector("[data-paused='1']")) setPoll("PAUSED", "warn", "paused");
   }
 
   var tickState = null;
@@ -620,7 +657,7 @@
       applyRoving(document, activeRowId(document));
     });
     document.body.addEventListener("htmx:sendError", function (event) {
-      if (isPoll(event)) setPoll("DOWN", "down");
+      if (isPoll(event)) setPoll("DOWN", "down", "down");
     });
     setInterval(function () {
       tickAges();
@@ -645,6 +682,8 @@
     handleKey: handleKey,
     focusPlan: focusPlan,
     rovingIndex: rovingIndex,
+    sessionLabel: sessionLabel,
+    announcePlan: announcePlan,
     start: start,
   };
 

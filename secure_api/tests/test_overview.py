@@ -59,6 +59,12 @@ def test_overview_is_scoped_to_the_role(monkeypatch):
     assert "2 of 60" in market.text
     assert "stale" in market.text
     assert "Last message not recorded" in market.text
+    assert 'role="progressbar"' in market.text
+    assert 'aria-valuemax="60"' in market.text
+    assert 'aria-valuenow="2"' in market.text
+    assert 'aria-label="market_data requests"' in market.text
+    assert "FIX on (at load)" in market.text
+    assert '<span id="poll-state" data-tone="pending">—</span>' in market.text
     assert 'hx-get="/ui/overview/books"' in market.text
     assert "every 5s" in market.text
     assert "10.00" in market.text and "12.00" in market.text

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Security{% endblock %}
 {% block content %}
+{% from "macros/ui.html" import meter %}
 <div class="security-page">
   <h1>Security</h1>
   <div class="kpi-strip">
@@ -62,7 +63,7 @@
               <td>{{ policy.subject }}</td>
               <td>{{ policy.category }}</td>
               <td class="num">{{ policy.used }} of {{ policy.allowed }}</td>
-              <td><span class="meter"><span class="meter-fill" data-tone="{{ policy.tone }}" style="width: {{ policy.fill }}%"></span></span></td>
+              <td>{{ meter(policy.used, policy.allowed, policy.tone, policy.fill, policy.subject ~ " " ~ policy.category) }}</td>
               <td class="num">{{ policy.window_seconds }}s</td>
             </tr>
             {% else %}

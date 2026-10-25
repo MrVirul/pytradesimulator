@@ -71,7 +71,25 @@ def test_nav_matches_the_role(monkeypatch):
         assert 'id="shortcuts"' in response.text
         assert 'id="shortcut-open"' in response.text
         assert 'aria-live="polite"' in response.text
+        assert 'id="poll-announce"' in response.text
+        assert 'role="status"' in response.text
+        assert 'id="poll-state" data-tone="pending"' in response.text
         assert 'data-nav="1"' in response.text
+        assert re.search(r'href="/ui"[^>]*aria-current="page"', response.text)
+
+
+def test_nav_current_uses_path_prefixes():
+    from secure_api.app.web.routes import nav_current
+
+    assert nav_current("/ui", "/ui")
+    assert not nav_current("/ui/alerts", "/ui")
+    assert nav_current("/ui/alerts/120", "/ui/alerts")
+    assert nav_current("/ui/market-data/BASELINE/book", "/ui/market")
+    assert nav_current("/ui/market", "/ui/market")
+    assert nav_current("/ui/audit", "/ui/security")
+    assert nav_current("/ui/scenarios/runs/4", "/ui/scenarios")
+    assert not nav_current("/ui/security", "/ui/alerts")
+    assert not nav_current("/ui/scenarios", "/ui/security")
 
 
 def test_tables_are_captioned_and_headers_are_scoped():

@@ -85,6 +85,9 @@ def test_depth_spread_and_stale_label(monkeypatch):
     assert "Paused" in paused.text
     assert "every 3s" not in paused.text
     assert "Resume" in paused.text
+    refresh = paused.text.split('id="market-refresh"', 1)[1].split(">", 1)[0]
+    assert 'href="/ui/market-data/PRICE/book?paused=1"' in refresh
+    assert 'hx-get="/ui/market-data/PRICE/book?paused=1"' in refresh
     same = client.get(
         "/ui/market-data/PRICE/book",
         params={"since": "4", "st": "live", "lo": "1"},

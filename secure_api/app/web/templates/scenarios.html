@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Scenarios{% endblock %}
 {% block content %}
+{% from "macros/ui.html" import meter %}
 <div class="lab-page">
   <h1>Scenario lab</h1>
   <div class="budget-strip">
-    <span>Budget {% if remaining is not none %}{{ remaining }}{% else %}—{% endif %} of {{ policy.requests_allowed }} per {{ policy.window_seconds }}s</span>
-    {% if budget %}<span class="meter"><span class="meter-fill" data-tone="{{ budget.tone }}" style="width: {{ budget.fill }}%"></span></span>{% endif %}
+    {% if budget %}
+    {% set used_label = "Used " ~ budget.used ~ " of " ~ budget.allowed ~ " per " ~ policy.window_seconds ~ "s" %}
+    <span>{{ used_label }}</span>
+    {{ meter(budget.used, budget.allowed, budget.tone, budget.fill, used_label) }}
+    {% else %}
+    <span>Budget — of {{ policy.requests_allowed }} per {{ policy.window_seconds }}s</span>
+    {% endif %}
   </div>
   <div class="lab">
     <section class="card lab-table">

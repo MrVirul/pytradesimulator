@@ -14,21 +14,22 @@
   <header class="top">
     <a class="brand" href="/ui">pytradesim</a>
     <nav aria-label="Sections">
-      {% for label, href in nav %}
-      <a href="{{ href }}" data-nav="{{ loop.index }}" aria-keyshortcuts="{{ loop.index }}" {% if path == href %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% for label, href, current in nav %}
+      <a href="{{ href }}" data-nav="{{ loop.index }}" aria-keyshortcuts="{{ loop.index }}" {% if current %}aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
       <a href="/docs">API docs</a>
     </nav>
     {% if signed_in %}
     <div class="link-status">
-      <span id="feed-state" class="num" data-tone="{{ 'ok' if feed.logged_on else 'deny' }}">{% if feed.logged_on %}FIX on{% else %}FIX off{% endif %}</span>
-      <span id="poll-state" data-tone="pending" aria-live="polite">—</span>
+      <span id="feed-state" class="num" data-tone="{{ 'ok' if feed.logged_on else 'deny' }}">{% if feed.logged_on %}FIX on{% else %}FIX off{% endif %}{% if feed_at_load %} (at load){% endif %}</span>
+      <span id="poll-state" data-tone="pending">{% if static_page %}static{% else %}—{% endif %}</span>
+      <span id="poll-announce" role="status" aria-live="polite" class="sr-only"></span>
     </div>
     <div class="user-chip">
       <span class="num">{{ client_id }}</span>
       <span>{{ roles | join(", ") }}</span>
       {% if expires_at %}
-      <span class="num" id="session-left" data-expires="{{ expires_at }}" {% if minutes_left <= 2 %}aria-live="polite"{% endif %}>{{ minutes_left }} min left</span>
+      <span class="num" id="session-left" data-expires="{{ expires_at }}">{{ minutes_left }} min left</span>
       {% else %}
       <span class="num">{{ minutes_left }} min left</span>
       {% endif %}

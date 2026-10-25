@@ -26,7 +26,7 @@
     {% else %}
     <a class="text-button" id="market-pause" data-key="pause" aria-keyshortcuts="p" href="/ui/market-data/{{ symbol }}/book?paused=1" hx-get="/ui/market-data/{{ symbol }}/book?paused=1" hx-target="#market-book" hx-swap="outerHTML">Pause</a>
     {% endif %}
-    <a class="text-button" id="market-refresh" data-key="refresh" aria-keyshortcuts="r" href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Refresh</a>
+    <a class="text-button" id="market-refresh" data-key="refresh" aria-keyshortcuts="r" href="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}" hx-get="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}" hx-target="#market-book" hx-swap="outerHTML">Refresh</a>
   </header>
   <div class="ladder-panel">
     <h2>Depth</h2>

@@ -70,7 +70,12 @@ def test_lab_page_shows_orders_budget_and_a_live_run(monkeypatch):
     assert page.status_code == 200
     assert "buy 10 @ 150" in page.text
     assert "No order" in page.text
-    assert "Budget 2 of 3 per 60s" in page.text
+    assert "Used 1 of 3 per 60s" in page.text
+    assert 'role="progressbar"' in page.text
+    assert 'aria-valuemin="0"' in page.text
+    assert 'aria-valuemax="3"' in page.text
+    assert 'aria-valuenow="1"' in page.text
+    assert 'aria-label="Used 1 of 3 per 60s"' in page.text
     assert "pending" in page.text
     assert 'name="price"' not in page.text
     assert 'id="confirm-run"' in page.text
@@ -161,6 +166,6 @@ def test_spent_budget_disables_run(monkeypatch):
         headers={"Cookie": "pytradesim_session=sess"},
     )
     assert page.status_code == 200
-    assert "Budget 0 of 3 per 60s" in page.text
+    assert "Used 3 of 3 per 60s" in page.text
     assert "disabled" in page.text
     assert "Resets 00:01:00.000" in page.text

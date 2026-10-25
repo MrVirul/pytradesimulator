@@ -1,3 +1,7 @@
+{% macro meter(used, allowed, tone, fill, label) %}
+<span class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="{{ allowed }}" aria-valuenow="{{ used }}" aria-label="{{ label }}"><span class="meter-fill" data-tone="{{ tone }}" style="width: {{ fill }}%"></span></span>
+{% endmacro %}
+
 {% macro ladder(bids, asks, max_qty, spread, stale=False) %}
 <div class="ladder{% if stale %} is-stale{% endif %}">
   <div class="level head"><span>Cum qty</span><span>Qty</span><span>Price</span><span>Depth</span></div>
