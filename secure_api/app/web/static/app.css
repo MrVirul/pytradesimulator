@@ -106,12 +106,14 @@ a:focus, button:focus, input:focus, select:focus, summary:focus, [data-row]:focu
   position: sticky;
   top: 0;
   z-index: 2;
-  flex: 0 0 36px;
-  height: 36px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  height: auto;
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
-  gap: var(--s2);
-  padding: 0 var(--s2);
+  gap: var(--s1) var(--s2);
+  padding: var(--s1) var(--s2);
   background: var(--bg-panel-head);
   color: var(--text-1);
   border-bottom: 1px solid var(--line);
@@ -119,14 +121,16 @@ a:focus, button:focus, input:focus, select:focus, summary:focus, [data-row]:focu
 
 .top a { color: var(--text-1); text-decoration: none; }
 .brand { font-weight: 700; margin-right: var(--s1); }
-.top nav { display: flex; gap: var(--s3); min-width: 0; }
+.top nav { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); min-width: 0; }
 .top a[aria-current="page"] { text-decoration: underline; }
 
 .link-status, .user-chip {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2);
+  gap: var(--s1) var(--s2);
   font-size: 13px;
+  min-width: 0;
 }
 
 .user-chip { margin-left: auto; }
@@ -349,7 +353,7 @@ a.text-button {
   align-items: start;
 }
 
-.overview-rail { display: grid; gap: 1px; background: var(--line); }
+.overview-rail { display: grid; gap: 1px; background: var(--line); min-width: 0; }
 .books-panel { min-width: 0; overflow: auto; }
 
 .meter {
@@ -382,18 +386,23 @@ details.card > summary { cursor: pointer; color: var(--text-2); font-size: 12px;
   position: sticky;
   top: 0;
   z-index: 2;
-  height: 40px;
+  min-height: 40px;
+  height: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2);
-  padding: 0 var(--s2);
+  gap: var(--s1) var(--s2);
+  padding: var(--s1) var(--s2);
   background: var(--bg-panel-head);
   border: 1px solid var(--line);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .filter-bar label { color: var(--text-2); font-size: 11px; }
 .filter-bar input, .filter-bar select, .filter-bar button { height: 24px; }
+.filter-bar label, .filter-bar input, .filter-bar select, .filter-bar button, .filter-bar a {
+  flex: 0 0 auto;
+}
 
 .alert-panel {
   flex: 1 1 auto;
@@ -542,7 +551,8 @@ td.clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   gap: var(--s2);
 }
 
-.lab-side { display: grid; gap: 1px; background: var(--line); }
+.lab-side { display: grid; gap: 1px; background: var(--line); min-width: 0; }
+.lab-table { min-width: 0; }
 .orders .mono { display: block; }
 
 .pill.run-pending { color: var(--pending); background: transparent; border-color: var(--pending); }
@@ -585,7 +595,16 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 .audit-panel thead th { position: sticky; top: 0; z-index: 1; }
 
 @media (max-width: 800px) {
-  .alert-split, .alert-detail, .security-grid, .kpi-strip, .lab { grid-template-columns: 1fr; height: auto; }
+  .alert-split, .alert-detail, .security-grid, .lab { grid-template-columns: 1fr; height: auto; }
+  .kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    height: auto;
+  }
+  .kpi { min-height: 40px; padding: var(--s1) var(--s2); }
+}
+
+@media (max-width: 600px) {
+  .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .tick-up { background-color: var(--bid-flash); }
