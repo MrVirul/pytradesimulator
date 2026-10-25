@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Security{% endblock %}
+{% block content %}
+{% from "macros/ui.html" import meter %}
+<div class="security-page">
+  <h1>Security</h1>
+  <div class="kpi-strip">
+    <div class="kpi"><span class="kpi-label">Requests</span><span class="num">{{ report.requests }}</span></div>
+    <div class="kpi"><span class="kpi-label">Allowed</span><span class="num">{{ report.allowed }}</span></div>
+    <div class="kpi"><span class="kpi-label">Denied</span><span class="num">{{ report.denied }}</span></div>
+    <div class="kpi" data-tone="{{ report.tone_401 }}"><span class="kpi-label">401</span><span class="num">{{ report.status_401 }}</span></div>
+    <div class="kpi" data-tone="{{ report.tone_403 }}"><span class="kpi-label">403</span><span class="num">{{ report.status_403 }}</span></div>
+    <div class="kpi" data-tone="{{ report.tone_429 }}"><span class="kpi-label">429</span><span class="num">{{ report.status_429 }}</span></div>
+    <div class="kpi"><span class="kpi-label">p50 ms</span><span class="num">{% if report.p50 is not none %}{{ report.p50 }}{% else %}—{% endif %}</span></div>
+    <div class="kpi"><span class="kpi-label">p95 ms</span><span class="num">{% if report.p95 is not none %}{{ report.p95 }}{% else %}—{% endif %}</span></div>
+    <div class="kpi"><span class="kpi-label">p99 ms</span><span class="num">{% if report.p99 is not none %}{{ report.p99 }}{% else %}—{% endif %}</span></div>
+  </div>
+  <p class="note">Counts include console polling; each book refresh is one audited request.</p>
+  <div class="window-switch">
+    <a href="/ui/security?minutes=15" {% if report.minutes != 60 %}aria-current="page"{% endif %}>15m</a>
+    <a href="/ui/security?minutes=60" {% if report.minutes == 60 %}aria-current="page"{% endif %}>60m</a>
+    <a href="/ui/security?minutes={{ report.minutes }}">Refresh</a>
+    <span>as of {{ as_of }}</span>
+  </div>
+  <div class="security-grid">
+    <section class="card">
+      <h2>Requests per minute</h2>
+      {% for bar in report.per_minute %}
+      <div class="minute-row">
+        <span class="num">{{ bar.label }}</span>
+        <span class="meter"><span class="meter-fill" style="width: {{ bar.width }}%"></span></span>
+        <span class="num">{{ bar.count }}</span>
+      </div>
+      {% else %}<p>No requests in this window. The first request will appear in the next bar.</p>{% endfor %}
+    </section>
+    <div class="security-side">
+      <section class="card">
+        <h2>Top clients</h2>
+        <table>
+          <caption>Top clients in this window</caption>
+          <thead><tr><th scope="col">Client</th><th scope="col">Count</th><th scope="col">Share</th></tr></thead>
+          <tbody>
+            {% for client in report.clients %}
+            <tr>
+              <td>{{ client.client_id }}</td>
+              <td class="num">{{ client.count }}</td>
+              <td><span class="meter"><span class="meter-fill" style="width: {{ client.share }}%"></span></span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3">No clients in this window yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      <section class="card">
+        <h2>Policies</h2>
+        <table>
+          <caption>Policies in effect</caption>
+          <thead><tr><th scope="col">Subject</th><th scope="col">Category</th><th scope="col">Used</th><th scope="col"><span class="sr-only">Actions</span></th><th scope="col">Window</th></tr></thead>
+          <tbody>
+            {% for policy in report.policies %}
+            <tr>
+              <td>{{ policy.subject }}</td>
+              <td>{{ policy.category }}</td>
+              <td class="num">{{ policy.used }} of {{ policy.allowed }}</td>
+              <td>{{ meter(policy.used, policy.allowed, policy.tone, policy.fill, policy.subject ~ " " ~ policy.category) }}</td>
+              <td class="num">{{ policy.window_seconds }}s</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">No policies stored.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+  <section class="card">
+    <h2>Audit log</h2>
+    <p><a class="text-button" href="/ui/audit">Open audit log</a></p>
+    <p class="note">Denied requests: <a href="/ui/audit?status_code=403">403</a> / <a href="/ui/audit?status_code=429">429</a>.</p>
+  </section>
+</div>
+{% endblock %}

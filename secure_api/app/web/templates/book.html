@@ -1,0 +1,68 @@
+<section
+  id="market-book"
+  class="book{% if status == 'stale' %} is-stale{% endif %}"
+  data-poll
+  data-server-now="{{ server_now }}"
+  {% if paused %}data-paused="1"{% endif %}
+  hx-get="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}"
+  {% if not paused %}
+  hx-trigger="load, every 3s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
+  hx-vals='{"since": "{{ ingest_sequence if ingest_sequence is not none else "" }}", "st": "{{ status }}", "lo": "{{ 1 if logged_on else 0 }}"}'
+  {% endif %}
+  hx-swap="outerHTML">
+  <header class="market-head{% if status == 'stale' %} is-stale{% endif %}">
+    <span class="num symbol">{{ symbol }}</span>
+    <p class="status status-{{ status }}">Status {{ status }}</p>
+    {% if paused %}<p class="status status-stale">Paused</p>{% endif %}
+    <dl class="market-facts">
+      <div class="fact"><dt>Bid</dt><dd class="num bid" data-k="best-bid" data-kind="price" data-v="{{ best_bid if best_bid is not none else '' }}">{{ best_bid | price }}</dd></div>
+      <div class="fact"><dt>Ask</dt><dd class="num ask" data-k="best-ask" data-kind="price" data-v="{{ best_ask if best_ask is not none else '' }}">{{ best_ask | price }}</dd></div>
+      <div class="fact"><dt>Spread</dt><dd class="num mid" data-k="spread" data-kind="price" data-v="{{ spread if spread is not none else '' }}">{{ spread | price }}</dd></div>
+      <div class="fact"><dt>Last</dt><dd class="num" data-k="last-px" data-kind="price" data-v="{{ last_trade.price if last_trade else '' }}">{% if last_trade %}{{ last_trade.price | price }} × {{ last_trade.quantity | qty }}{% else %}—{% endif %}</dd></div>
+      <div class="fact"><dt>Age</dt><dd class="num">{% if received_at %}<time datetime="{{ received_at }}" data-age-from="{{ received_at }}">{{ age_seconds | age }}</time>{% else %}—{% endif %}</dd></div>
+      <div class="fact"><dt>Seq</dt><dd class="num">{% if ingest_sequence is not none %}{{ ingest_sequence }}{% else %}—{% endif %}</dd></div>
+      <div class="fact"><dt>FIX</dt><dd class="num">{% if logged_on %}on{% else %}off{% endif %}</dd></div>
+    </dl>
+    {% if paused %}
+    <a class="text-button" id="market-pause" data-key="pause" aria-keyshortcuts="p" href="/ui/market-data/{{ symbol }}/book" hx-get="/ui/market-data/{{ symbol }}/book" hx-target="#market-book" hx-swap="outerHTML">Resume</a>
+    {% else %}
+    <a class="text-button" id="market-pause" data-key="pause" aria-keyshortcuts="p" href="/ui/market-data/{{ symbol }}/book?paused=1" hx-get="/ui/market-data/{{ symbol }}/book?paused=1" hx-target="#market-book" hx-swap="outerHTML">Pause</a>
+    {% endif %}
+    <a class="text-button" id="market-refresh" data-key="refresh" aria-keyshortcuts="r" href="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}" hx-get="/ui/market-data/{{ symbol }}/book{% if paused %}?paused=1{% endif %}" hx-target="#market-book" hx-swap="outerHTML">Refresh</a>
+  </header>
+  <div class="ladder-panel">
+    <h2>Depth</h2>
+    {% if status == "uninitialized" %}
+    <p class="empty">No snapshot yet. The exchange sends the first one after the next book change.</p>
+    {% else %}
+    {% from "macros/ui.html" import ladder %}
+    {{ ladder(bids, asks, max_qty, spread, status == 'stale') }}
+    {% endif %}
+    <p>The exchange sends no event time. Age is measured from the time this service stored the book.</p>
+  </div>
+  <div class="tape-panel" data-keep-scroll id="tape-{{ symbol }}">
+    <table class="tape">
+      <caption>Recent trades</caption>
+      <thead><tr><th scope="col">Time UTC</th><th scope="col">Price</th><th scope="col">Qty</th><th scope="col">Seq</th></tr></thead>
+      <tbody>
+        {% for trade in trades %}
+        <tr data-id="{{ trade.ingestion_id }}" title="{{ trade.ingestion_id }}">
+          <td class="num" title="{{ trade.received_at }}">{{ trade.received_at | ts }}</td>
+          <td class="num dir-{{ trade.tick }}">{{ trade.price | price }}{% if trade.tick == 'up' %} ▲{% elif trade.tick == 'down' %} ▼{% endif %}</td>
+          <td class="num">{{ trade.quantity | qty }}</td>
+          <td class="num">{{ trade.ingest_sequence }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">No trades yet. The first print will appear here.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p>Identical prints in one exchange flush are collapsed.</p>
+  </div>
+  {% if fragment %}
+  <span id="feed-state" class="num" data-tone="{{ 'ok' if logged_on else 'deny' }}" hx-swap-oob="outerHTML">{% if logged_on %}FIX on{% else %}FIX off{% endif %}</span>
+  {% set item = {"symbol": symbol, "status": status, "received_at": received_at, "age_seconds": age_seconds} %}
+  {% set oob = True %}
+  {% include "watch_row.html" %}
+  {% endif %}
+</section>

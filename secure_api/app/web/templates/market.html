@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ symbol }}{% endblock %}
+{% block content %}
+<h1 class="visually-hidden">Market</h1>
+<div class="market">
+  <form class="symbol-form symbol-form-narrow" method="get" action="/ui/market">
+    <label for="symbol">Symbol</label>
+    <select id="symbol" name="symbol" data-primary aria-keyshortcuts="/">
+      {% for name in symbol_choices %}
+      <option value="{{ name }}" {% if name == symbol %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Show</button>
+    {% if previous_symbol %}<a class="text-button" data-key="prev" aria-keyshortcuts="[" href="/ui/market?symbol={{ previous_symbol }}">Previous</a>{% endif %}
+    {% if next_symbol %}<a class="text-button" data-key="next" aria-keyshortcuts="]" href="/ui/market?symbol={{ next_symbol }}">Next</a>{% endif %}
+  </form>
+  <aside class="watchlist" aria-label="Symbols">
+    <table>
+      <caption>Symbols</caption>
+      <thead><tr><th scope="col">Symbol</th><th scope="col">Status</th><th scope="col">Age</th></tr></thead>
+      <tbody>
+        {% for item in symbols %}
+        {% set row_first = loop.first %}
+        {% include "watch_row.html" %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </aside>
+  {% include "book.html" %}
+</div>
+{% endblock %}

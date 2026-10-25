@@ -1,0 +1,3 @@
+# Optional local-only test dependency. Not installed by the Docker image.
+# After installing, run: python -m playwright install chromium
+playwright==1.49.1

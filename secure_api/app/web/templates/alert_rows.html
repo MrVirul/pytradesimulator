@@ -1,0 +1,58 @@
+<section
+  id="alert-rows"
+  data-poll
+  hx-get="/ui/alerts/rows"
+  hx-include="#alert-filters"
+  hx-trigger="every 10s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
+  hx-swap="outerHTML">
+  {% from "macros/ui.html" import filter_summary %}
+  {% set active = [] %}
+  {% if symbol %}{% set _ = active.append("Symbol: " ~ symbol) %}{% endif %}
+  {% if rule_name %}{% set _ = active.append("Rule: " ~ rule_name) %}{% endif %}
+  {% if severity %}{% set _ = active.append("Severity: " ~ severity) %}{% endif %}
+  {% if created_from %}{% set _ = active.append("From: " ~ created_from ~ " UTC") %}{% endif %}
+  {% if created_to %}{% set _ = active.append("To: " ~ created_to ~ " UTC") %}{% endif %}
+  {{ filter_summary(active, "/ui/alerts") }}
+  <table class="alerts">
+    <caption>Alerts <span id="alerts-new"></span></caption>
+    <colgroup>
+      <col style="width: 12%">
+      <col style="width: 11%">
+      <col style="width: 8%">
+      <col style="width: 8%">
+      <col style="width: 9%">
+      <col style="width: 9%">
+      <col style="width: 8%">
+      <col style="width: 35%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th scope="col">Time UTC</th>
+        <th scope="col">Rule</th>
+        <th scope="col">Symbol</th>
+        <th scope="col">Severity</th>
+        <th scope="col">Observed</th>
+        <th scope="col">Threshold</th>
+        <th scope="col">Excess</th>
+        <th scope="col">Detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for alert in alerts %}
+      <tr id="alert-{{ alert.id }}" data-id="{{ alert.id }}" data-row="alerts" tabindex="{{ 0 if loop.first else -1 }}">
+        <td class="num" title="{{ alert.created_at }}">{{ alert.created_at | tsd }}</td>
+        <td><a href="/ui/alerts/{{ alert.id }}">{{ alert.rule_name }}</a></td>
+        <td>{{ alert.symbol or "—" }}</td>
+        <td><span class="pill {{ alert.severity }}">{{ alert.severity }}</span></td>
+        <td class="num">{{ alert.observed_value | price }}</td>
+        <td class="num">{{ alert.threshold | price }}</td>
+        <td class="num">{{ alert.excess | signed }}</td>
+        <td class="clip" title="{{ alert.detail }}">{{ alert.detail }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8">No alerts match this filter. Adjust or clear the filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="table-foot">Latest 100 matching.</p>
+</section>

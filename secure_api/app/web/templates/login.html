@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block message %}
+{% if notice == "signed_out" %}<p class="banner">Signed out.</p>{% endif %}
+{% if error == "expired" %}<p class="banner">Session expired. Sign in again.</p>{% endif %}
+{% if error == "failed" %}<p class="banner">Sign-in failed. Try again.</p>{% endif %}
+{% if error == "unknown_user" %}<p class="banner">That account is not a demo user.</p>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="login-panel card">
+  <h1>Sign in</h1>
+  <table>
+    <caption>Demo users</caption>
+    <thead>
+      <tr>
+        <th scope="col">Username</th>
+        <th scope="col">Role</th>
+        <th scope="col">Opens</th>
+        {% if show_passwords %}<th scope="col">Password</th>{% endif %}
+        <th scope="col"><span class="sr-only">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr id="login-{{ user.username }}" data-row="login" tabindex="{{ 0 if loop.first else -1 }}">
+        <td class="mono">{{ user.username }}</td>
+        <td>{{ user.role }}</td>
+        <td>{{ user.opens }}</td>
+        {% if show_passwords %}
+        <td class="mono">{{ user.password }} <button type="button" id="copy-{{ user.username }}" data-copy="{{ user.password }}">Copy</button></td>
+        {% endif %}
+        <td><a href="/ui/login/start?user={{ user.username }}">Sign in as {{ user.username }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

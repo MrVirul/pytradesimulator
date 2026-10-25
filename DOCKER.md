@@ -6,6 +6,7 @@ through a full trading demonstration.
 - [What runs where](#what-runs-where)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [Secure layer](#secure-layer)
 - [Starting the exchange](#starting-the-exchange)
 - [Running the clients](#running-the-clients)
 - [Demonstration](#demonstration)
@@ -13,6 +14,7 @@ through a full trading demonstration.
 - [Environment variables](#environment-variables)
 - [Useful commands](#useful-commands)
 - [Troubleshooting](#troubleshooting)
+- [Limitations](#limitations)
 - [Notes](#notes)
 
 ---
@@ -68,7 +70,7 @@ containers with a terminal attached.
 # 1. Build the image
 docker build -f DockerFile -t pytradesim:latest .
 
-# 2. Start the exchange
+# 2. Start the exchange. FIX ports stay on the Compose network.
 docker compose up -d exchange
 
 # 3. Follow the logs
@@ -82,6 +84,107 @@ The exchange is ready when the log shows:
 [supervisor] ready
 ```
 
+## Secure layer
+
+`docs/RUNBOOK.md` is the short start, the path from an order to the page, and
+the fields taken from `35=W`. This section is the longer reference.
+
+The same Compose file also starts the read path described in
+`docs/ARCHITECTURE.md`. Services without a profile start together. Profile
+services (`client`, `market-client`, `baseline`, `order`, `scenario`) stay
+off until you ask for them.
+
+From a new checkout, at the repo root:
+
+```bash
+copy .env.example .env
+docker compose up -d --build
+docker compose ps -a
+```
+
+`.env.example` is the committed list of settings. `.env` is not committed and is not copied into an image. With no `.env` file, Compose uses the same defaults, so the stack still starts. Change a password or a URL in `.env`, then recreate the container that reads it. Keycloak imports the realm only when that container is created, and it skips a realm that already exists:
+
+```bash
+docker compose up -d --force-recreate keycloak
+```
+
+`--build` produces `pytradesim`, `pytradesim-subscriber`, and `pytradesim-api`.
+Postgres 16 and Keycloak 24.0.5 are pulled. `migrate` applies every file in
+`secure_api/migrations` in name order, then exits. Those files are safe to
+run again:
+
+```bash
+docker compose run --rm migrate
+```
+
+| Service | On the host | Ready when |
+|---|---|---|
+| `exchange` | 5001 and 5002 are not published | `healthy` |
+| `postgres` | 5432 is not published | `healthy` |
+| `migrate` | nothing | `Exited (0)` |
+| `subscriber` | nothing | the log shows `MDCLIENT3` logged on. The container stays `unhealthy` |
+| `scenario-worker` | nothing | running. It stays `unhealthy` for the same reason |
+| `keycloak` | `localhost:8081` | `http://localhost:8081/realms/pytradesim` returns the realm |
+| `api` | `localhost:8080` | `http://localhost:8080/ui/login` returns the login page |
+
+`subscriber` and `scenario-worker` are built from the exchange image, so they
+keep its health check. That check looks for listeners on 5001 and 5002.
+Those ports belong to `exchange`. Feed health is the market page and
+`feed_status.logged_on`, not the container status.
+
+Open the UI at `http://localhost:8080/ui/login`. The Keycloak redirect URIs are
+`http://localhost:8080/ui/callback` and
+`http://localhost:8080/docs/oauth2-redirect`, so use `localhost` in the
+browser, not `127.0.0.1`. The login page shows one card per demo user. Each
+card opens Keycloak with that username filled in and asks for the password,
+even if another user was signed in before. Sign out from any page. That ends
+the app session and the Keycloak session, then returns to the login page.
+
+Demo passwords below are the defaults in `.env.example`. The login page
+prints them only when `SHOW_DEMO_CREDENTIALS` is not `0`.
+
+| Who | Password | What they can open |
+|---|---|---|
+| `market` | `market` | Overview and Market |
+| `analyst` | `analyst` | Overview, Market, and Surveillance |
+| `admin` | `admin` | those, plus Security and Scenarios |
+| Keycloak console `admin` | `admin` | `http://localhost:8081` |
+
+The database owner is `pytradesim` / `pytradesim`. The API connects as
+`pytradesim_app` / `pytradesim`. Postgres is reachable from other Compose
+services. The subscriber stores `MSFT`, `HYG`, `BASELINE`, `PRICE`, `SPREAD`,
+and `VOLUME`, and only after the book for that symbol changes:
+
+```bash
+docker compose exec postgres psql -U pytradesim -d pytradesim \
+    -c "SELECT symbol, status, received_at FROM market_snapshots"
+```
+
+One resting bid, or one named scenario:
+
+```bash
+docker compose --profile order run --rm place-order
+docker compose --profile scenario run --rm -e SCENARIO=price_movement run-scenario
+```
+
+`SCENARIO` is `price_movement`, `spread_widening`, or `volume`. An admin can
+start those three, plus `unauthorized_access` and `rate_limit_abuse`, from
+`/ui/scenarios`. The lab post contains the scenario name. The scenario worker
+sends the fixed `CLIENT3` orders for the three FIX names. The two access
+names call the API and do not send an order. `rate_limit_abuse` sets that
+client's market-data policy to one request per 60 seconds.
+
+Swagger UI is `http://localhost:8080/docs`. Authorize there with Keycloak
+PKCE. The API image does not pick up Python edits until it is rebuilt:
+
+```bash
+docker compose build api
+docker compose up -d api
+```
+
+`./secure_api` is mounted into the subscriber, the scenario worker, and the
+profile harnesses, so those processes read the checkout without a rebuild.
+
 ## Starting the exchange
 
 ### With Docker Compose (recommended)
@@ -91,12 +194,14 @@ docker compose up -d exchange
 docker compose ps          # STATUS should read "healthy"
 ```
 
-The ports are published on the host:
+Compose does not publish FIX to the host. Other Compose services reach the
+exchange at `exchange:5001` and `exchange:5002`. To publish those ports for
+a client that runs on the host, use the `docker run -p` example below.
 
-| Host port | Service |
+| Compose service port | Who can connect |
 |---|---|
-| `5001` | FIX order entry |
-| `5002` | FIX market data |
+| `5001` | Containers on the Compose network (FIX order entry) |
+| `5002` | Containers on the Compose network (FIX market data) |
 
 ### Without Compose
 
@@ -324,6 +429,18 @@ docker compose logs -f exchange
 # Check the health of the container
 docker inspect --format '{{.State.Health.Status}}' pytradesim-exchange
 
+# Run the scripted FIX baseline. Rebuild first so the image contains the
+# CLIENT3 and MDCLIENT3 acceptor sessions.
+docker compose build exchange
+docker compose --profile baseline run --rm fix-baseline
+
+# The read API, Keycloak, subscriber, and scenario worker start with the
+# exchange. See Secure layer above for the logins and the ports.
+docker compose up -d --build
+
+# Follow the FIX subscriber. It is a separate process from any web worker.
+docker compose logs -f subscriber
+
 # Run the test suite
 docker run --rm pytradesim:latest test
 
@@ -338,6 +455,11 @@ docker compose down
 ```
 
 ## Troubleshooting
+
+**`exec /app/docker/entrypoint.sh: no such file or directory`.**
+The script was copied into the image with Windows CRLF line endings.
+`.gitattributes` keeps `docker/entrypoint.sh` and the FIX configs as LF.
+Rebuild the image after pulling that attribute.
 
 **The client hangs on "Enter choice" and never logs on.**
 The exchange is not reachable. Check that it is healthy and that
@@ -362,6 +484,29 @@ order first, see the [demonstration](#demonstration).
 The `quickfix` patch was not applied. The build applies
 `docker/patches/quickfix-1.15.1-portable-atomic-count.patch`, see
 [Notes](#notes).
+
+## Limitations
+
+These match the running Compose file and the gateway behavior the subscriber
+cannot change.
+
+- The exchange flushes a symbol about once a second, and only after the book
+  changes. A subscription does not return the current book. `MSFT` and `HYG`
+  stay absent from `market_snapshots` until something changes them.
+- One flush collapses identical `(price, quantity)` trades. The volume
+  scenario waits between fills so each distinct trade is stored.
+- The matching book is process memory. Restarting `exchange` drops it.
+  Stored rows are marked `stale` until a new snapshot. Postgres does not
+  restore the book.
+- A depth of 10 is ignored. The gateway sends the full aggregated book and
+  omits an empty side.
+- `subscriber` and `scenario-worker` stay `unhealthy`. Their image health
+  check expects the exchange ports.
+- Compose does not publish 5001, 5002, 5432, or 9000. The `docker run -p`
+  example further up does publish 5001 and 5002, for a client on the host.
+- Port 9000 stays inside the exchange container. Nothing else connects to it.
+- The passwords in this guide are the demo values in `docker-compose.yml`
+  and `secure_api/keycloak/pytradesim-realm.json`.
 
 ## Notes
 

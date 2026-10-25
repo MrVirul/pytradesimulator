@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+{% from "macros/ui.html" import meter %}
+<h1>Overview</h1>
+<div class="overview">
+  <section class="card books-panel">
+    <h2>Books</h2>
+    {% include "overview_books.html" %}
+  </section>
+  <div class="overview-rail">
+    <section class="card">
+      <h2>Feed</h2>
+      <p>{% if feed.logged_on %}FIX on{% else %}FIX off{% endif %}</p>
+      <p>{% if feed.last_message_at %}Last message <time class="num" datetime="{{ feed.last_message_at }}" title="{{ feed.last_message_at }}">{{ feed.last_message_at | ts }}</time>{% else %}Last message not recorded{% endif %}</p>
+    </section>
+    <section class="card">
+      <h2>Your rate limits</h2>
+      <table>
+        <caption>Used and allowed per category</caption>
+        <thead><tr><th scope="col">Category</th><th scope="col">Used</th><th scope="col"><span class="sr-only">Actions</span></th><th scope="col">Resets UTC</th></tr></thead>
+        <tbody>
+          {% for limit in limits %}
+          <tr>
+            <td>{{ limit.category }}</td>
+            <td class="num">{{ limit.used }} of {{ limit.allowed }}</td>
+            <td>{{ meter(limit.used, limit.allowed, limit.tone, limit.fill, limit.category ~ " requests") }}</td>
+            <td class="num">{% if limit.resets_at %}{{ limit.resets_at | ts }}{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">No requests counted yet. Usage appears after the first request.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <details class="card">
+      <summary>Identity</summary>
+      <p>Client <span class="num">{{ client_id }}</span></p>
+      <p>Roles {{ roles | join(", ") }}</p>
+      <ul>
+        {% for permission in permissions %}
+        <li>{{ permission }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </div>
+</div>
+{% endblock %}

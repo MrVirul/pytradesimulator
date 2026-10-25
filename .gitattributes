@@ -1,0 +1,8 @@
+# The container entrypoint is executed by Linux. A CRLF checkout makes
+# exec fail with "no such file or directory". QuickFIX configs are copied
+# into the same image, so they stay LF as well.
+docker/entrypoint.sh text eol=lf
+DockerFile text eol=lf
+*.cfg text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf

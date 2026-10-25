@@ -1,0 +1,32 @@
+{% macro meter(used, allowed, tone, fill, label) %}
+<span class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="{{ allowed }}" aria-valuenow="{{ used }}" aria-label="{{ label }}"><span class="meter-fill" data-tone="{{ tone }}" style="width: {{ fill }}%"></span></span>
+{% endmacro %}
+
+{% macro filter_summary(items, clear_href) %}
+<p class="filter-summary">{% if items %}Active filters: {{ items | join("; ") }}.{% else %}No filters active.{% endif %} <a href="{{ clear_href }}">Clear</a></p>
+{% endmacro %}
+
+{% macro ladder(bids, asks, max_qty, spread, stale=False) %}
+<div class="ladder{% if stale %} is-stale{% endif %}">
+  <div class="level head"><span>Side</span><span>Cum qty</span><span>Qty</span><span>Price</span><span>Depth</span></div>
+  {% for level in asks %}
+  <div class="level ask">
+    <span class="side">Ask</span>
+    <span class="num" data-k="ladder:ask:{{ level.price }}:cum" data-kind="qty" data-v="{{ level.cumulative }}">{{ level.cumulative | qty }}</span>
+    <span class="num" data-k="ladder:ask:{{ level.price }}:qty" data-kind="qty" data-v="{{ level.quantity }}">{{ level.quantity | qty }}</span>
+    <span class="num px">{{ level.price | price }}</span>
+    <span class="depth"><span class="bar" style="width: {{ (level.quantity / max_qty * 100) | round }}%"></span></span>
+  </div>
+  {% else %}<p class="empty">No asks. The first ask will appear on the next update.</p>{% endfor %}
+  <p class="spread-row">Spread {{ spread | price }}</p>
+  {% for level in bids %}
+  <div class="level">
+    <span class="side">Bid</span>
+    <span class="num" data-k="ladder:bid:{{ level.price }}:cum" data-kind="qty" data-v="{{ level.cumulative }}">{{ level.cumulative | qty }}</span>
+    <span class="num" data-k="ladder:bid:{{ level.price }}:qty" data-kind="qty" data-v="{{ level.quantity }}">{{ level.quantity | qty }}</span>
+    <span class="num px">{{ level.price | price }}</span>
+    <span class="depth"><span class="bar" style="width: {{ (level.quantity / max_qty * 100) | round }}%"></span></span>
+  </div>
+  {% else %}<p class="empty">No bids. The first bid will appear on the next update.</p>{% endfor %}
+</div>
+{% endmacro %}

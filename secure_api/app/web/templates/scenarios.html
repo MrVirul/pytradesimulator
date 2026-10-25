@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Scenarios{% endblock %}
+{% block content %}
+{% from "macros/ui.html" import meter %}
+<div class="lab-page">
+  <h1>Scenario lab</h1>
+  <div class="budget-strip">
+    {% if budget %}
+    {% set used_label = "Used " ~ budget.used ~ " of " ~ budget.allowed ~ " per " ~ policy.window_seconds ~ "s" %}
+    <span>{{ used_label }}</span>
+    {{ meter(budget.used, budget.allowed, budget.tone, budget.fill, used_label) }}
+    {% else %}
+    <span>Budget — of {{ policy.requests_allowed }} per {{ policy.window_seconds }}s</span>
+    {% endif %}
+  </div>
+  <div class="lab">
+    <section class="card lab-table">
+      <table>
+        <caption>Scenarios</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">What it does</th>
+            <th scope="col">Orders</th>
+            <th scope="col">Expects</th>
+            <th scope="col">Last status</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scenario in scenarios %}
+          {% set state = last_status.get(scenario.name, "not run") %}
+          <tr id="scenario-{{ scenario.name }}" data-row="scenario" tabindex="{{ 0 if loop.first else -1 }}">
+            <td class="mono">{{ scenario.name }}</td>
+            <td>{{ scenario.about }}</td>
+            <td class="orders">
+              {% if scenario.orders %}
+              {% for line in scenario.orders %}<span class="mono">{{ line }}</span>{% endfor %}
+              {% else %}
+              No order
+              {% endif %}
+            </td>
+            <td>{{ scenario.expects }}</td>
+            <td><span class="pill run-{{ state | replace(' ', '-') }}">{{ state }}</span></td>
+            <td>
+              {% if scenario.runnable %}
+              <form method="post" action="/ui/scenarios" data-run-form>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="scenario" value="{{ scenario.name }}">
+                <button type="submit" data-symbol="{{ scenario.symbol }}" aria-keyshortcuts="Enter"
+                  {% if remaining == 0 %}disabled title="{% if resets_at %}Resets {{ resets_at | ts }}{% else %}Budget used{% endif %}"{% endif %}>Run</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <div class="lab-side">
+      {% if run %}{% include "scenario_run.html" %}{% else %}
+      <section class="card"><h2>Active run</h2><p>No run selected. Choose Run on a scenario.</p></section>
+      {% endif %}
+      <section class="card">
+        <h2>Run history</h2>
+        <table>
+          <caption>Last 12 runs, newest first</caption>
+          <thead><tr><th scope="col">Time UTC</th><th scope="col">Scenario</th><th scope="col">Status</th><th scope="col">Request</th></tr></thead>
+          <tbody>
+            {% for item in history %}
+            <tr id="run-{{ item.id }}" data-row="runs" tabindex="{{ 0 if loop.first else -1 }}">
+              <td class="num" title="{{ item.created_at }}">{{ item.created_at | tsd }}</td>
+              <td class="mono">{{ item.scenario }}</td>
+              <td><span class="pill run-{{ item.status }}">{{ item.status }}</span></td>
+              <td>{% if item.request_id %}<a class="mono" href="/ui/audit?request_id={{ item.request_id }}">{{ item.request_id }}</a>{% else %}—{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">No runs yet. Run a scenario to see its result here.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+</div>
+<dialog id="confirm-run">
+  <form method="post" action="/ui/scenarios" id="confirm-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="scenario" id="confirm-scenario" value="">
+    <h2 id="confirm-name"></h2>
+    <p id="confirm-symbol"></p>
+    <p id="confirm-orders" class="mono"></p>
+    <button type="submit" {% if remaining == 0 %}disabled{% endif %}>Confirm</button>
+    <button type="button" data-close-dialog>Cancel</button>
+  </form>
+</dialog>
+{% endblock %}

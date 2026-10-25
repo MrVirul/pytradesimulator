@@ -8,9 +8,11 @@ services:
     image: pytradesim:latest
     container_name: pytradesim-exchange
     command: ["server"]
-    ports:
-      - "5001:5001"  # FIX order entry
-      - "5002:5002"  # FIX market data
+    # FIX stays on the Compose network. Publishing 5001 or 5002 would
+    # expose the unauthenticated legacy sessions on the host.
+    expose:
+      - "5001"  # FIX order entry
+      - "5002"  # FIX market data
     environment:
       PYTRADESIM_INTERNAL_PORT: "9000"
     healthcheck:
@@ -58,3 +60,191 @@ services:
     healthcheck:
       disable: true
     profiles: ["market-client"]
+
+  # Scripted order match. The legacy image must be rebuilt after the
+  # CLIENT3 and MDCLIENT3 session blocks change, because those files are
+  # copied into the image.
+  #   docker compose build exchange
+  #   docker compose --profile baseline run --rm fix-baseline
+  fix-baseline:
+    build:
+      context: .
+      dockerfile: DockerFile
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/tools/fix_baseline.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      BASELINE_SYMBOL: BASELINE
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    profiles: ["baseline"]
+
+  # Read model. Not published on the host. Demo password, documented in DOCKER.md.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pytradesim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pytradesim}
+      POSTGRES_DB: ${POSTGRES_DB:-pytradesim}
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pytradesim -d pytradesim"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-pytradesim}
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-pytradesim}
+      PGDATABASE: ${POSTGRES_DB:-pytradesim}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-pytradesim}
+    volumes:
+      - ./secure_api/migrations:/migrations:ro
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        for file in /migrations/*.sql; do
+          psql -v ON_ERROR_STOP=1 -v app_password="$$APP_DB_PASSWORD" -f "$$file"
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Own process. A web worker must not open this FIX session.
+  subscriber:
+    build:
+      context: .
+      dockerfile: secure_api/Dockerfile.subscriber
+    image: pytradesim-subscriber:latest
+    command: ["python", "/app/secure_api/adapter/subscriber.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      SUBSCRIBE_SYMBOLS: MSFT,HYG,BASELINE,PRICE,SPREAD,VOLUME
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql://pytradesim_app:${APP_DB_PASSWORD:-pytradesim}@postgres:5432/${POSTGRES_DB:-pytradesim}
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Sends queued scenario names as CLIENT3. The API does not open this session.
+  scenario-worker:
+    image: pytradesim-subscriber:latest
+    command: ["python", "/app/secure_api/harness/worker.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql://pytradesim_app:${APP_DB_PASSWORD:-pytradesim}@postgres:5432/${POSTGRES_DB:-pytradesim}
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Places one resting bid. Does not open the market-data session.
+  #   docker compose --profile order run --rm place-order
+  place-order:
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/harness/send_resting_bid.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      PYTHONPATH: /app
+      ORDER_SYMBOL: BASELINE
+      ORDER_PRICE: "51"
+      ORDER_QTY: "40"
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    profiles: ["order"]
+
+  # Named scenario only. SCENARIO is price_movement, spread_widening, or volume.
+  #   docker compose --profile scenario run --rm -e SCENARIO=spread_widening run-scenario
+  run-scenario:
+    image: pytradesim:latest
+    command: ["python", "/app/secure_api/harness/run_scenario.py"]
+    environment:
+      EXCHANGE_HOST: exchange
+      PYTHONPATH: /app
+      SCENARIO: price_movement
+    volumes:
+      - ./secure_api:/app/secure_api:ro
+    depends_on:
+      exchange:
+        condition: service_healthy
+    profiles: ["scenario"]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "${KEYCLOAK_PORT:-8081}"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      DEMO_MARKET_PASSWORD: ${DEMO_MARKET_PASSWORD:-market}
+      DEMO_ANALYST_PASSWORD: ${DEMO_ANALYST_PASSWORD:-analyst}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_SCENARIO_CLIENT_SECRET: ${KEYCLOAK_SCENARIO_CLIENT_SECRET:-pytradesim-scenario}
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - ./secure_api/keycloak:/opt/keycloak/data/import:ro
+
+  api:
+    build:
+      context: ./secure_api
+      dockerfile: Dockerfile
+    image: pytradesim-api:latest
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      DATABASE_URL: postgresql://pytradesim_app:${APP_DB_PASSWORD:-pytradesim}@postgres:5432/${POSTGRES_DB:-pytradesim}
+      RATE_LIMIT_REQUIRED: "1"
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      PUBLIC_KEYCLOAK_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
+      KEYCLOAK_PUBLIC_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: pytradesim
+      KEYCLOAK_CLIENT_ID: pytradesim-ui
+      KEYCLOAK_REDIRECT_URI: ${PUBLIC_API_URL:-http://localhost:8080}/ui/callback
+      JWT_ISSUER: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8081}/realms/pytradesim
+      JWT_AUDIENCE: pytradesim-api
+      JWT_JWKS_URL: http://keycloak:8080/realms/pytradesim/protocol/openid-connect/certs
+      KEYCLOAK_SCENARIO_CLIENT_ID: pytradesim-scenario
+      KEYCLOAK_SCENARIO_CLIENT_SECRET: ${KEYCLOAK_SCENARIO_CLIENT_SECRET:-pytradesim-scenario}
+      DEMO_MARKET_PASSWORD: ${DEMO_MARKET_PASSWORD:-market}
+      DEMO_ANALYST_PASSWORD: ${DEMO_ANALYST_PASSWORD:-analyst}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin}
+      SHOW_DEMO_CREDENTIALS: ${SHOW_DEMO_CREDENTIALS:-1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+      SESSION_MINUTES: ${SESSION_MINUTES:-15}
+      SURVEILLANCE_ENABLED: "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started

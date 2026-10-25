@@ -1,0 +1,22 @@
+<section
+  id="scenario-run"
+  aria-live="polite"
+  {% if run.status == "pending" or run.status == "running" %}
+  data-poll
+  hx-get="/ui/scenarios/runs/{{ run.id }}"
+  hx-trigger="every 3s [document.visibilityState === 'visible' && !document.body.dataset.backoff]"
+  hx-swap="outerHTML"
+  {% endif %}>
+  <h2>Run {{ run.id }} {{ run.scenario }}</h2>
+  <p><span class="pill run-{{ run.status }}" data-k="run-status" data-kind="status" data-v="{{ run.status }}">{{ run.status }}</span></p>
+  {% if run.status == "running" %}<div class="run-bar" aria-hidden="true"></div>{% endif %}
+  {% if run.status == "passed" and run.symbol %}
+  <p><a href="/ui/alerts?symbol={{ run.symbol }}">Alerts for {{ run.symbol }}</a></p>
+  {% endif %}
+  {% if run.request_id %}
+  <p>Request <a href="/ui/audit?request_id={{ run.request_id }}">{{ run.request_id }}</a></p>
+  {% endif %}
+  {% if run.status == "failed" %}
+  <p>The scenario did not complete.</p>
+  {% endif %}
+</section>

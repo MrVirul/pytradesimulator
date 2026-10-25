@@ -1,0 +1,5 @@
+<tr id="watch-{{ item.symbol }}" data-row="watch" tabindex="{{ 0 if row_first else -1 }}" {% if item.symbol == symbol %}class="is-current"{% endif %} {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <td><a href="/ui/market?symbol={{ item.symbol }}">{{ item.symbol }}</a></td>
+  <td><span class="pill {{ item.status }}">{{ item.status }}</span></td>
+  <td class="num">{% if item.received_at %}<time datetime="{{ item.received_at }}" data-age-from="{{ item.received_at }}">{{ item.age_seconds | age }}</time>{% else %}—{% endif %}</td>
+</tr>

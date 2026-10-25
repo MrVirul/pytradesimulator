@@ -1,0 +1,60 @@
+<section id="audit-rows">
+  {% from "macros/ui.html" import filter_summary %}
+  {% set active = [] %}
+  {% if request_id %}{% set _ = active.append("Request id: " ~ request_id) %}{% endif %}
+  {% if filter_client %}{% set _ = active.append("Client: " ~ filter_client) %}{% endif %}
+  {% if action %}{% set _ = active.append("Action: " ~ action) %}{% endif %}
+  {% if decision %}{% set _ = active.append("Decision: " ~ decision) %}{% endif %}
+  {% if status_code %}{% set _ = active.append("Status: " ~ status_code) %}{% endif %}
+  {% if recorded_from %}{% set _ = active.append("From: " ~ recorded_from ~ " UTC") %}{% endif %}
+  {% if recorded_to %}{% set _ = active.append("To: " ~ recorded_to ~ " UTC") %}{% endif %}
+  {{ filter_summary(active, "/ui/audit") }}
+  <table class="alerts">
+    <caption>Audit events</caption>
+    <colgroup>
+      <col style="width: 11%">
+      <col style="width: 16%">
+      <col style="width: 8%">
+      <col style="width: 10%">
+      <col style="width: 22%">
+      <col style="width: 8%">
+      <col style="width: 6%">
+      <col style="width: 13%">
+      <col style="width: 6%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th scope="col">Time UTC</th>
+        <th scope="col">Request id</th>
+        <th scope="col">Client</th>
+        <th scope="col">Action</th>
+        <th scope="col">Resource</th>
+        <th scope="col">Decision</th>
+        <th scope="col">Status</th>
+        <th scope="col">Reason</th>
+        <th scope="col">Latency ms</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for event in events %}
+      <tr id="audit-{{ event.request_id or loop.index }}" data-row="audit" tabindex="{{ 0 if loop.first else -1 }}">
+        <td class="num" title="{{ event.recorded_at }}">{{ event.recorded_at | tsd }}</td>
+        <td>
+          <a class="mono" href="/ui/audit?request_id={{ event.request_id }}">{{ event.request_id }}</a>
+          <button type="button" id="copy-{{ event.request_id or loop.index }}" data-copy="{{ event.request_id }}" aria-keyshortcuts="c">Copy</button>
+        </td>
+        <td>{{ event.client_id }}</td>
+        <td>{{ event.action }}</td>
+        <td class="clip" title="{{ event.resource }}">{{ event.resource or "—" }}</td>
+        <td><span class="pill {{ event.decision_tone }}">{{ event.decision }}</span></td>
+        <td><span class="pill {{ event.status_tone }}{% if event.status_bold %} bold{% endif %}">{{ event.status_code }}</span></td>
+        <td>{{ event.reason }}</td>
+        <td class="num">{% if event.latency_ms is not none %}{{ event.latency_ms }}{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9">No audit events match this filter. Adjust or clear the filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="table-foot">Latest 50 matching.</p>
+</section>
