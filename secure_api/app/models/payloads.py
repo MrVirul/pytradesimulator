@@ -167,6 +167,7 @@ class AuditEventPayload(BaseModel):
     status_code: int
     latency_ms: int
     recorded_at: str
+    client_ip: Optional[str] = None
 
 
 class AuditListPayload(BaseModel):
@@ -186,6 +187,7 @@ class AuditListPayload(BaseModel):
                         "status_code": 200,
                         "latency_ms": 12,
                         "recorded_at": "2026-10-22T12:00:00+00:00",
+                        "client_ip": "127.0.0.1",
                     }
                 ]
             }

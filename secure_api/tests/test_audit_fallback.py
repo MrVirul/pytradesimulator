@@ -84,5 +84,6 @@ def test_failed_audit_write_prints_stderr_json(client, keys, monkeypatch, capsys
     assert payload["decision"] == "allowed"
     assert payload["status_code"] == 200
     assert "latency_ms" in payload
+    assert "client_ip" in payload
     assert token not in err[-1]
     assert "Bearer" not in err[-1]

@@ -176,6 +176,7 @@ async def audit_request(request: Request, call_next):
         )
     response.headers["X-Request-ID"] = request.state.request_id
     if getattr(request.state, "action", None) and os.environ.get("DATABASE_URL"):
+        client_host = request.client.host if request.client else None
         event = {
             "request_id": request.state.request_id,
             "client_id": getattr(request.state, "client_id", "anonymous"),
@@ -185,6 +186,7 @@ async def audit_request(request: Request, call_next):
             "reason": getattr(request.state, "reason", ""),
             "status_code": response.status_code,
             "latency_ms": int((time.perf_counter() - started) * 1000),
+            "client_ip": client_host,
         }
         try:
             write_event(event)

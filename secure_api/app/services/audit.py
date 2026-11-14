@@ -19,9 +19,9 @@ def write_event(event):
                     """
                     INSERT INTO audit_events (
                         request_id, client_id, action, resource,
-                        decision, reason, status_code, latency_ms
+                        decision, reason, status_code, latency_ms, client_ip
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         event["request_id"],
@@ -32,6 +32,7 @@ def write_event(event):
                         event["reason"],
                         event["status_code"],
                         event["latency_ms"],
+                        event.get("client_ip"),
                     ),
                 )
 
@@ -114,7 +115,8 @@ def list_events(
                 cursor.execute(
                     """
                     SELECT request_id, client_id, action, resource,
-                           decision, reason, status_code, latency_ms, recorded_at
+                           decision, reason, status_code, latency_ms,
+                           recorded_at, client_ip
                     FROM audit_events
                     {0}
                     ORDER BY id DESC
@@ -134,6 +136,7 @@ def list_events(
             "status_code": row[6],
             "latency_ms": row[7],
             "recorded_at": row[8].isoformat(),
+            "client_ip": row[9],
         }
         for row in rows
     ]

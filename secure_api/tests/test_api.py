@@ -243,5 +243,7 @@ def test_audit_row_correlates_and_omits_the_token(client, keys):
         if event["request_id"] == request_id and event["decision"] == "allowed"
     ]
     assert matches
+    assert "client_ip" in matches[0]
+    assert matches[0]["client_ip"] is not None
     assert token not in listed.text
 
