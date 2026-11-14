@@ -111,6 +111,20 @@ def request_id_of(request):
     return current
 
 
+def rate_limit_headers(decision):
+    headers = {}
+    if decision is None or decision.limit is None:
+        return headers
+    headers["X-RateLimit-Limit"] = str(decision.limit)
+    headers["X-RateLimit-Remaining"] = str(
+        0 if decision.remaining is None else decision.remaining
+    )
+    headers["X-RateLimit-Reset"] = str(
+        0 if decision.reset_seconds is None else decision.reset_seconds
+    )
+    return headers
+
+
 def require(permission):
     def dependency(
         request: Request,
@@ -140,6 +154,7 @@ def require(permission):
         if os.environ.get("RATE_LIMIT_REQUIRED", "1") != "0":
             role = claims["roles"][0] if claims.get("roles") else ""
             decision = consume(claims["client_id"], role, permission)
+            request.state.rate_limit = decision
             if not decision.allowed:
                 request.state.decision = "denied"
                 request.state.reason = (
@@ -147,13 +162,13 @@ def require(permission):
                 )
                 status = 503 if decision.unavailable else 429
                 code = "unavailable" if decision.unavailable else "rate_limit_exceeded"
-                headers = None
+                headers = rate_limit_headers(decision)
                 if status == 429:
-                    headers = {"Retry-After": str(decision.retry_after)}
+                    headers["Retry-After"] = str(decision.retry_after)
                 raise HTTPException(
                     status_code=status,
                     detail=error_body(code, "Request limit exceeded", request_id),
-                    headers=headers,
+                    headers=headers or None,
                 )
         request.state.decision = "allowed"
         request.state.reason = "ok"
@@ -203,6 +218,11 @@ async def audit_request(request: Request, call_next):
             ),
         )
     response.headers["X-Request-ID"] = request.state.request_id
+    if request.url.path.startswith("/api/v1"):
+        for name, value in rate_limit_headers(
+            getattr(request.state, "rate_limit", None)
+        ).items():
+            response.headers[name] = value
     if getattr(request.state, "action", None) and os.environ.get("DATABASE_URL"):
         client_host = request.client.host if request.client else None
         event = {

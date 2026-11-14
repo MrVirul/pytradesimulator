@@ -7,10 +7,21 @@ from secure_api.app.db import connection, lock
 
 
 class RateDecision(object):
-    def __init__(self, allowed, retry_after, unavailable=False):
+    def __init__(
+        self,
+        allowed,
+        retry_after,
+        unavailable=False,
+        limit=None,
+        remaining=None,
+        reset_seconds=None,
+    ):
         self.allowed = allowed
         self.retry_after = retry_after
         self.unavailable = unavailable
+        self.limit = limit
+        self.remaining = remaining
+        self.reset_seconds = reset_seconds
 
 
 def category_for(permission):
@@ -112,7 +123,9 @@ def _consume(conn, subject, role, category):
         if policy is None:
             return RateDecision(False, 60, unavailable=True)
         _matched, allowed, window_seconds = policy
-        window = timedelta(seconds=int(window_seconds))
+        allowed = int(allowed)
+        window_seconds = int(window_seconds)
+        window = timedelta(seconds=window_seconds)
         cursor.execute(
             """
             SELECT window_start, request_count
@@ -133,8 +146,16 @@ def _consume(conn, subject, role, category):
                 """,
                 (subject, category, now),
             )
-            return RateDecision(True, 0)
+            return RateDecision(
+                True,
+                0,
+                limit=allowed,
+                remaining=max(allowed - 1, 0),
+                reset_seconds=window_seconds,
+            )
         window_start, request_count = row
+        if window_start.tzinfo is None:
+            window_start = window_start.replace(tzinfo=timezone.utc)
         elapsed = now - window_start
         if elapsed >= window:
             cursor.execute(
@@ -145,10 +166,22 @@ def _consume(conn, subject, role, category):
                 """,
                 (now, subject, category),
             )
-            return RateDecision(True, 0)
-        if request_count >= int(allowed):
-            retry = int((window - elapsed).total_seconds()) + 1
-            return RateDecision(False, max(retry, 1))
+            return RateDecision(
+                True,
+                0,
+                limit=allowed,
+                remaining=max(allowed - 1, 0),
+                reset_seconds=window_seconds,
+            )
+        reset_seconds = int((window - elapsed).total_seconds()) + 1
+        if request_count >= allowed:
+            return RateDecision(
+                False,
+                max(reset_seconds, 1),
+                limit=allowed,
+                remaining=0,
+                reset_seconds=max(reset_seconds, 1),
+            )
         cursor.execute(
             """
             UPDATE rate_limit_counters
@@ -157,4 +190,11 @@ def _consume(conn, subject, role, category):
             """,
             (subject, category),
         )
-        return RateDecision(True, 0)
+        used = int(request_count) + 1
+        return RateDecision(
+            True,
+            0,
+            limit=allowed,
+            remaining=max(allowed - used, 0),
+            reset_seconds=max(reset_seconds, 1),
+        )

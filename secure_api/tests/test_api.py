@@ -204,14 +204,24 @@ def test_rate_limit_returns_429(keys, monkeypatch):
     )
     headers = {"Authorization": "Bearer {0}".format(token)}
     local = TestClient(app)
-    assert local.get("/api/v1/market-data", headers=headers).status_code == 200
-    assert local.get("/api/v1/market-data", headers=headers).status_code == 200
+    first = local.get("/api/v1/market-data", headers=headers)
+    assert first.status_code == 200
+    assert first.headers["x-ratelimit-limit"] == "2"
+    assert first.headers["x-ratelimit-remaining"] == "1"
+    assert int(first.headers["x-ratelimit-reset"]) >= 1
+    second = local.get("/api/v1/market-data", headers=headers)
+    assert second.status_code == 200
+    assert second.headers["x-ratelimit-limit"] == "2"
+    assert second.headers["x-ratelimit-remaining"] == "0"
     denied = local.get(
         "/api/v1/market-data",
         headers=dict(headers, **{"X-Request-ID": "req-m61-limited"}),
     )
     _assert_status(denied, 429, "rate_limit_exceeded", "req-m61-limited")
     assert int(denied.headers["retry-after"]) >= 1
+    assert denied.headers["x-ratelimit-limit"] == "2"
+    assert denied.headers["x-ratelimit-remaining"] == "0"
+    assert int(denied.headers["x-ratelimit-reset"]) >= 1
 
 
 def test_audit_row_correlates_and_omits_the_token(client, keys):
