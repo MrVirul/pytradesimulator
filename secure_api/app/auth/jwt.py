@@ -15,6 +15,17 @@ class TokenError(Exception):
         self.reason = reason
 
 
+_jwks_clients = {}
+
+
+def _jwks_client(url):
+    client = _jwks_clients.get(url)
+    if client is None:
+        client = PyJWKClient(url, cache_keys=True, lifespan=300)
+        _jwks_clients[url] = client
+    return client
+
+
 def _signing_key(token):
     key = os.environ.get("JWT_PUBLIC_KEY", "").replace("\\n", "\n")
     if key:
@@ -23,7 +34,7 @@ def _signing_key(token):
     if not url:
         raise TokenError("malformed")
     try:
-        return PyJWKClient(url).get_signing_key_from_jwt(token).key
+        return _jwks_client(url).get_signing_key_from_jwt(token).key
     except Exception:
         raise TokenError("malformed")
 
