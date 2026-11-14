@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -93,12 +94,18 @@ def error_body(code, message, request_id):
     return {"error": {"code": code, "message": message, "request_id": request_id}}
 
 
+_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+
+
 def request_id_of(request):
     current = getattr(request.state, "request_id", None)
     if current:
         return current
     incoming = request.headers.get("x-request-id")
-    current = incoming or "req-{0}".format(uuid.uuid4().hex[:12])
+    if incoming and _REQUEST_ID.match(incoming):
+        current = incoming
+    else:
+        current = "req-{0}".format(uuid.uuid4().hex[:12])
     request.state.request_id = current
     return current
 

@@ -107,7 +107,7 @@ Close security gaps inside `secure_api/` only. No gateway, gRPC, frontend-via-`/
 
 - **M11.1** Cache the JWKS client. Status: `done`. Exit: two token decodes against the same JWKS URL construct `PyJWKClient` once; `JWT_PUBLIC_KEY` path unchanged.
 - **M11.2** Audit write fallback. Status: `done`. Exit: a failing `write_event` prints one JSON line to stderr with the audit fields and `audit_write_failed`, and nothing secret.
-- **M11.3** Validate `X-Request-ID`. Status: `todo`. Exit: only `^[A-Za-z0-9_-]{1,80}$` is accepted; anything else is replaced with a generated id.
+- **M11.3** Validate `X-Request-ID`. Status: `done`. Exit: only `^[A-Za-z0-9_-]{1,80}$` is accepted; anything else is replaced with a generated id.
 - **M11.4** Audit client IP. Status: `todo`. Exit: migration 009 adds `client_ip`; middleware stores `request.client.host`; `AuditEventPayload` and `list_events` expose it.
 - **M11.5** Security headers. Status: `todo`. Exit: nosniff, referrer, frame deny on all responses; `Cache-Control: no-store` on `/api/v1` and signed-in `/ui`; CSP on `/ui` only; `/docs` has no CSP.
 - **M11.6** Rate-limit response headers. Status: `todo`. Exit: `/api/v1` responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`, including 429s.
@@ -270,3 +270,4 @@ The fastest call was 31.04 ms and the slowest was 64.99 ms.
 - **2026-11-14** — Milestone 11 listed as `todo`. API hardening inside `secure_api/` only: JWKS cache, audit fallback, request-id validation, audit client IP, security headers, rate-limit headers, connection pool, and evidence. Gateway, gRPC, frontend-via-`/api/v1`, OAuth scopes, CORS, and CI stay out of this milestone.
 - **2026-11-14** — M11.1. `_jwks_clients` keeps one `PyJWKClient(url, cache_keys=True, lifespan=300)` per JWKS URL. The `JWT_PUBLIC_KEY` path is unchanged. The new test failed first with `AttributeError: module has no attribute '_jwks_clients'`. Checked with `pytest secure_api/tests/test_jwks_cache.py secure_api/tests/test_api.py`: 9 passed, 3 skipped.
 - **2026-11-14** — M11.2. A failing `write_event` prints one JSON line to stderr with the audit fields and `audit_write_failed: true`. The bearer token is not in the line. The new test failed first with status 500 because `DATABASE_URL` made the market-data handler call Postgres; the handler is patched to return an empty list for that case. Checked with `pytest secure_api/tests/test_audit_fallback.py`: 1 passed.
+- **2026-11-14** — M11.3. `request_id_of` accepts only `^[A-Za-z0-9_-]{1,80}$`. A 200-character header and `a b<c` are replaced with a generated `req-` id; a valid id is echoed. The invalid case failed first. Checked with `pytest secure_api/tests/test_request_id.py`: 2 passed.
