@@ -15,7 +15,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 
 from secure_api.app.auth import oidc
-from secure_api.app.config import keycloak_client_id
+from secure_api.app.auth.browser import SESSION_COOKIE
+from secure_api.app.config import keycloak_client_id, public_keycloak_url
 from secure_api.app.models.payloads import (
     AlertDetailPayload,
     AlertListPayload,
@@ -159,6 +160,33 @@ def require(permission):
         return claims
 
     return dependency
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    path = request.url.path
+    if path.startswith("/api/v1"):
+        response.headers["Cache-Control"] = "no-store"
+    elif path.startswith("/ui") and request.cookies.get(SESSION_COOKIE):
+        response.headers["Cache-Control"] = "no-store"
+    if path.startswith("/ui"):
+        # Templates load scripts only from /static. HTMX event filters
+        # (hx-trigger="every Ns [...]") need 'unsafe-eval'. No inline <script>.
+        keycloak = public_keycloak_url()
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-eval'; "
+            "style-src 'self'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self' {0}".format(keycloak)
+        )
+    return response
 
 
 @app.middleware("http")
