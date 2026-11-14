@@ -1,7 +1,9 @@
 """Read API. Authorization runs before any database call."""
 
 import asyncio
+import json
 import os
+import sys
 import threading
 import time
 import uuid
@@ -167,21 +169,22 @@ async def audit_request(request: Request, call_next):
         )
     response.headers["X-Request-ID"] = request.state.request_id
     if getattr(request.state, "action", None) and os.environ.get("DATABASE_URL"):
+        event = {
+            "request_id": request.state.request_id,
+            "client_id": getattr(request.state, "client_id", "anonymous"),
+            "action": request.state.action,
+            "resource": getattr(request.state, "resource", request.url.path),
+            "decision": getattr(request.state, "decision", "denied"),
+            "reason": getattr(request.state, "reason", ""),
+            "status_code": response.status_code,
+            "latency_ms": int((time.perf_counter() - started) * 1000),
+        }
         try:
-            write_event(
-                {
-                    "request_id": request.state.request_id,
-                    "client_id": getattr(request.state, "client_id", "anonymous"),
-                    "action": request.state.action,
-                    "resource": getattr(request.state, "resource", request.url.path),
-                    "decision": getattr(request.state, "decision", "denied"),
-                    "reason": getattr(request.state, "reason", ""),
-                    "status_code": response.status_code,
-                    "latency_ms": int((time.perf_counter() - started) * 1000),
-                }
-            )
+            write_event(event)
         except Exception:
-            pass
+            fallback = dict(event)
+            fallback["audit_write_failed"] = True
+            print(json.dumps(fallback, sort_keys=True), file=sys.stderr, flush=True)
     return response
 
 
